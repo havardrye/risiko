@@ -142,3 +142,79 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+/* --- Verktøytips på cellene --- */
+
+.cell {
+  position: relative;
+}
+
+.tooltip {
+  position: absolute;
+  left: 50%;
+  z-index: 10;
+  display: none;
+  flex-direction: column;
+  gap: 0.125rem;
+  width: 16rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.2);
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  transform: translateX(-50%);
+}
+
+.tooltipAbove {
+  bottom: calc(100% + 6px);
+}
+
+.tooltipBelow {
+  top: calc(100% + 6px);
+}
+
+/* Ytterst til venstre og høyre legges tipset inntil kanten, så det ikke klippes. */
+.tooltipStart {
+  left: 0;
+  transform: none;
+}
+
+.tooltipEnd {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.cell:hover .tooltip,
+.cell:focus-within .tooltip {
+  display: flex;
+}
+
+.tooltipsHidden .cell .tooltip {
+  display: none;
+}
+
+.tooltipHeading {
+  font-weight: 700;
+}
+
+.tooltipList {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.25rem;
+}
+
+.tooltipList > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tooltipMuted {
+  color: var(--color-text-muted);
+}
