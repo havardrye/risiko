@@ -1,0 +1,39 @@
+.bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  align-items: end;
+  gap: 0.75rem 1rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.search {
+  grid-column: span 2;
+}
+
+/* På smale skjermer får søkefeltet hele bredden alene. */
+@media (max-width: 30rem) {
+  .bar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.reset {
+  display: flex;
+  align-items: flex-end;
+}

@@ -1,0 +1,30 @@
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font-weight: inherit;
+  cursor: pointer;
+}
+
+.sortButton:hover {
+  text-decoration: underline;
+}
+
+.sortActive {
+  color: var(--color-accent);
+}
+
+.sortIdle {
+  color: var(--color-text-muted);
+}
+
+.title {
+  min-width: 12rem;
+}
+
+.date {
+  white-space: nowrap;
+}

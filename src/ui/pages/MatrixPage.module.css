@@ -1,0 +1,62 @@
+.notice {
+  padding: 1rem 1.25rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  margin: 1rem 0 0;
+}
+
+.legendGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legendGroup dt {
+  font-weight: 600;
+}
+
+.legendGroup dd {
+  margin: 0;
+}
+
+.details {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.detailsHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.detailsTitle {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.close {
+  margin-left: auto;
+}
+
+.riskList {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.riskList li + li {
+  margin-top: 0.25rem;
+}

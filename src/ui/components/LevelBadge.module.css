@@ -1,0 +1,11 @@
+.badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  /* Kanten skiller de lyse fargene fra hvit bakgrunn. */
+  border: 1px solid rgb(0 0 0 / 0.25);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}

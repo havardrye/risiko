@@ -1,0 +1,144 @@
+/* Matrisen ruller sidelengs i sin egen beholder på smale skjermer; siden ruller ikke. */
+.scroll {
+  position: relative;
+  overflow-x: auto;
+  padding: 1.75rem 1rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.matrix {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: separate;
+  border-spacing: 2px;
+  table-layout: fixed;
+}
+
+.headerCol {
+  width: 6rem;
+}
+
+.rowHeader,
+.colHeader {
+  padding: 0.375rem;
+  background: #e8e8e8;
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.rowHeader {
+  height: 4.5rem;
+}
+
+.rowHeader span,
+.colHeader span {
+  display: block;
+}
+
+.number {
+  font-weight: 700;
+}
+
+.cell {
+  height: 4.5rem;
+  padding: 0;
+  /* Kant i samme stil som referansebildet. */
+  outline: 1px solid #1f3a4d;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Skillelinjen mellom muligheter og trusler. */
+.divider {
+  box-shadow: inset 3px 0 0 #1a1a1a;
+}
+
+.cellButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cellButton:hover {
+  background: rgb(0 0 0 / 0.08);
+}
+
+.cellButton:focus-visible {
+  outline: 3px solid #1a1a1a;
+  outline-offset: -5px;
+  box-shadow: inset 0 0 0 6px #ffffff;
+}
+
+/* Skillelinjen beholdes også når cellen inntil den er valgt. */
+.selected.divider {
+  box-shadow:
+    inset 3px 0 0 #1a1a1a,
+    inset 0 0 0 6px #ffffff;
+}
+
+/* Svart ytre og hvit indre kant, så markeringen synes på både lyse og mørke celler. */
+.selected {
+  outline: 4px solid #1a1a1a;
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 6px #ffffff;
+  position: relative;
+  z-index: 1;
+}
+
+.count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.corner {
+  background: transparent;
+}
+
+.group {
+  padding-top: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Farger fra referansebildet, mørknet for nok kontrast mot hvit bakgrunn. */
+.opportunity {
+  color: #2e7d32;
+}
+
+.threat {
+  color: #c62828;
+}
+
+.axis {
+  padding-top: 0.125rem;
+  font-size: 1.125rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.yAxis {
+  position: absolute;
+  top: 0.25rem;
+  left: 1rem;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

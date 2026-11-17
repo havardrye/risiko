@@ -1,0 +1,24 @@
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  padding: 0.375rem var(--gutter);
+  border-bottom: 1px solid #e3d79a;
+  background: #fff8db;
+  font-size: 0.875rem;
+}
+
+.icon {
+  font-size: 1rem;
+  color: #6b5900;
+}
+
+.text {
+  flex: 1 1 20rem;
+  margin: 0;
+}
+
+.button {
+  background: transparent;
+}

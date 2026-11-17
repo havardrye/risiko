@@ -1,0 +1,22 @@
+.page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem var(--gutter) 3rem;
+}
+
+.reason {
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.heading {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
