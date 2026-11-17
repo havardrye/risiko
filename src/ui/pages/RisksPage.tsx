@@ -4,7 +4,7 @@ import { DEFAULT_SORT, filterRisks, type RiskSort } from '../../domain/filters.t
 import type { Risk } from '../../domain/schema.ts'
 import { useAppData, useDataStore } from '../../state/dataContext.ts'
 import { ConfirmDialog } from '../components/ConfirmDialog.tsx'
-import { Dialog } from '../components/Dialog.tsx'
+import { Dialog, DialogActions } from '../components/Dialog.tsx'
 import { RiskFilterBar } from '../components/RiskFilterBar.tsx'
 import { RiskForm } from '../components/RiskForm.tsx'
 import { RiskTable } from '../components/RiskTable.tsx'
@@ -19,6 +19,7 @@ type DialogState =
   | { type: 'create' }
   | { type: 'edit'; risk: Risk }
   | { type: 'confirmDelete'; risk: Risk }
+  | { type: 'missing' }
 
 const CLOSED: DialogState = { type: 'closed' }
 
@@ -72,6 +73,15 @@ export function RisksPage() {
     { count: areas.length, text: 'minst ett risikoområde', route: ROUTES.areas },
   ].filter((item) => item.count === 0)
   const canCreate = missing.length === 0
+  const missingList = (
+    <ul>
+      {missing.map((item) => (
+        <li key={item.route.path}>
+          {item.text}, under <Link to={item.route.path}>{item.route.label}</Link>
+        </li>
+      ))}
+    </ul>
+  )
 
   async function confirmDelete(risk: Risk) {
     close()
@@ -89,15 +99,15 @@ export function RisksPage() {
         <h1 ref={headingRef} tabIndex={-1}>
           {ROUTES.risks.label}
         </h1>
-        {canCreate && (
-          <button
-            type="button"
-            className="button button-primary"
-            onClick={() => setDialog({ type: 'create' })}
-          >
-            Ny risiko
-          </button>
-        )}
+        {/* Knappen vises alltid, så det er tydelig hvor risikoer legges inn. Mangler
+            eier, tema eller område, forklarer den hva som må gjøres først. */}
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={() => setDialog({ type: canCreate ? 'create' : 'missing' })}
+        >
+          Ny risiko
+        </button>
       </div>
 
       {deleteError && <p role="alert">{deleteError}</p>}
@@ -111,13 +121,7 @@ export function RisksPage() {
             Hver risiko har en eier, et tema og et område. Før du kan registrere risikoer må det
             finnes:
           </p>
-          <ul>
-            {missing.map((item) => (
-              <li key={item.route.path}>
-                {item.text}, under <Link to={item.route.path}>{item.route.label}</Link>
-              </li>
-            ))}
-          </ul>
+          {missingList}
         </section>
       ) : risks.length === 0 ? (
         <p className={styles.empty}>
@@ -175,6 +179,20 @@ export function RisksPage() {
           <p>«{dialog.risk.title}» blir slettet. Dette kan ikke angres.</p>
         )}
       </ConfirmDialog>
+
+      <Dialog
+        open={dialog.type === 'missing'}
+        title="Først trengs eier, tema og område"
+        onClose={close}
+      >
+        <p>Hver risiko har en eier, et tema og et område. Før du kan registrere risikoer må det finnes:</p>
+        {missingList}
+        <DialogActions>
+          <button type="button" className="button button-primary" onClick={close}>
+            Lukk
+          </button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }

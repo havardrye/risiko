@@ -35,7 +35,7 @@ function optionTexts(select: HTMLElement) {
 }
 
 describe('veiledning før første risiko (K22)', () => {
-  it('lister alt som mangler, med lenker, og skjuler «Ny risiko»', async () => {
+  it('lister alt som mangler, med lenker', async () => {
     await openPage()
     const guide = screen.getByRole('region', { name: 'Kom i gang' })
     expect(
@@ -47,7 +47,32 @@ describe('veiledning før første risiko (K22)', () => {
       'minst ett risikotema, under Risikotemaer',
       'minst ett risikoområde, under Risikoområder',
     ])
-    expect(screen.queryByRole('button', { name: 'Ny risiko' })).not.toBeInTheDocument()
+  })
+
+  it('viser alltid «Ny risiko», og forklarer hva som mangler i stedet for å åpne skjemaet', async () => {
+    const { user, repository } = await openPage({ ...references(), themes: [] })
+    await user.click(screen.getByRole('button', { name: 'Ny risiko' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Først trengs eier, tema og område' })
+    expect(within(dialog).queryByLabelText('Tittel')).not.toBeInTheDocument()
+    expect(
+      within(dialog)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['minst ett risikotema, under Risikotemaer'])
+
+    await user.click(within(dialog).getByRole('link', { name: 'Risikotemaer' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Risikotemaer' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect((await repository.load()).risks).toEqual([])
+  })
+
+  it('lukker forklaringen med «Lukk»', async () => {
+    const { user } = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Ny risiko' }))
+    await user.click(screen.getByRole('button', { name: 'Lukk' }))
+    // At fokus går tilbake til knappen, gjør nettleserens <dialog>; jsdom gjør det ikke.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('lister bare det som mangler', async () => {
