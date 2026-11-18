@@ -107,10 +107,10 @@ function addGuideSheet(workbook: Workbook): void {
   heading('Slik fyller du ut')
   for (const line of [
     `Fyll ut fanene ${sheetNames}. Første rad i hver fane er overskrifter og skal ikke endres.`,
-    'Eier, Tema og Område i fanen Risikoer må være navn som står i fanene Eiere, Temaer og Områder.',
+    'Eier-ID, Tema-ID og Område-ID i fanen Risikoer må være ID-er som står i fanene Eiere, Temaer og Områder.',
     'Navn må være unike i hver fane. Store og små bokstaver regnes som like.',
     'Kolonner med nedtrekksliste: velg en verdi fra listen.',
-    'Score og Nivå i fanen Risikoer beregnes av appen og leses ikke inn.',
+    'Score, Nivå, Eier, Tema og Område bakerst i fanen Risikoer er bare til informasjon og leses ikke inn.',
     'Du kan legge til egne kolonner og faner til notater. De leses ikke inn.',
   ]) {
     sheet.addRow([`• ${line}`])

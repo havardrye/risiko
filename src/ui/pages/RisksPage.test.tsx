@@ -6,11 +6,11 @@ function references(): AppData {
   return {
     schemaVersion: 3,
     owners: [
-      { id: 'o1', name: 'Ola Åsen' },
-      { id: 'o2', name: 'Kari Nordmann' },
+      { id: 'o1', code: 'E-1', name: 'Ola Åsen' },
+      { id: 'o2', code: 'E-2', name: 'Kari Nordmann' },
     ],
-    themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
+    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør' }],
+    areas: [{ id: 'a1', code: 'O-1', name: 'IT', horizon: '0-3' }],
     risks: [],
   }
 }
@@ -102,9 +102,9 @@ describe('risikoskjema (K1–K3)', () => {
     await user.type(within(dialog).getByLabelText('ID'), 'R-1')
     await user.type(within(dialog).getByLabelText('Tittel'), 'Leverandør går konkurs')
     await user.type(within(dialog).getByLabelText('Beskrivelse (valgfritt)'), 'Kritisk drift')
-    await user.selectOptions(within(dialog).getByLabelText('Risikoeier'), 'Kari Nordmann')
-    await user.selectOptions(within(dialog).getByLabelText('Tema'), 'Leverandør')
-    await user.selectOptions(within(dialog).getByLabelText('Område'), 'IT')
+    await user.type(within(dialog).getByLabelText('Risikoeier'), 'E-2')
+    await user.type(within(dialog).getByLabelText('Tema'), 'T-1')
+    await user.type(within(dialog).getByLabelText('Område'), 'O-1')
     await user.selectOptions(within(dialog).getByLabelText('Sannsynlighet'), '2 – Lav')
     await user.selectOptions(within(dialog).getByLabelText('Konsekvens'), '5 – Svært alvorlig')
     await user.click(within(dialog).getByRole('button', { name: 'Lagre' }))
@@ -176,9 +176,9 @@ describe('risikoskjema (K1–K3)', () => {
     await user.type(within(dialog).getByLabelText('ID'), 'M-1')
     await user.type(within(dialog).getByLabelText('Tittel'), 'Ny støtteordning')
     await user.click(within(dialog).getByLabelText('Mulighet'))
-    await user.selectOptions(within(dialog).getByLabelText('Risikoeier'), 'Ola Åsen')
-    await user.selectOptions(within(dialog).getByLabelText('Tema'), 'Leverandør')
-    await user.selectOptions(within(dialog).getByLabelText('Område'), 'IT')
+    await user.type(within(dialog).getByLabelText('Risikoeier'), 'E-1')
+    await user.type(within(dialog).getByLabelText('Tema'), 'T-1')
+    await user.type(within(dialog).getByLabelText('Område'), 'O-1')
     await user.selectOptions(within(dialog).getByLabelText('Sannsynlighet'), '3 – Moderat')
     await user.selectOptions(within(dialog).getByLabelText('Konsekvens'), '4 – Verdifull')
     await user.click(within(dialog).getByRole('button', { name: 'Lagre' }))
@@ -195,10 +195,10 @@ describe('risikoskjema (K1–K3)', () => {
     expect(within(dialog).getByLabelText('ID')).toHaveAccessibleDescription('ID er påkrevd')
     expect(within(dialog).getByLabelText('Tittel')).toHaveAccessibleDescription('Tittel er påkrevd')
     expect(within(dialog).getByLabelText('Risikoeier')).toHaveAccessibleDescription(
-      'Velg en risikoeier',
+      'Risikoeier er påkrevd',
     )
-    expect(within(dialog).getByLabelText('Tema')).toHaveAccessibleDescription('Velg et tema')
-    expect(within(dialog).getByLabelText('Område')).toHaveAccessibleDescription('Velg et område')
+    expect(within(dialog).getByLabelText('Tema')).toHaveAccessibleDescription('Tema er påkrevd')
+    expect(within(dialog).getByLabelText('Område')).toHaveAccessibleDescription('Område er påkrevd')
     expect(within(dialog).getByLabelText('Sannsynlighet')).toHaveAccessibleDescription(
       'Velg en verdi fra 1 til 5',
     )
@@ -219,7 +219,7 @@ describe('risikoskjema (K1–K3)', () => {
     expect(within(dialog).getByLabelText('Tittel')).toHaveFocus()
     expect(within(dialog).getByLabelText('Risikoeier')).toBeInvalid()
 
-    await user.selectOptions(within(dialog).getByLabelText('Risikoeier'), 'Ola Åsen')
+    await user.type(within(dialog).getByLabelText('Risikoeier'), 'E-1')
     expect(within(dialog).getByLabelText('Risikoeier')).toBeValid()
     await user.type(within(dialog).getByLabelText('ID'), 'R-1')
 
@@ -227,13 +227,15 @@ describe('risikoskjema (K1–K3)', () => {
     expect(within(dialog).getByLabelText('Tema')).toHaveFocus()
   })
 
-  it('lister eierne alfabetisk', async () => {
-    const { dialog } = await openForm()
-    expect(optionTexts(within(dialog).getByLabelText('Risikoeier'))).toEqual([
-      'Velg risikoeier',
-      'Kari Nordmann',
-      'Ola Åsen',
-    ])
+  it('foreslår eierne sortert etter ID (spec 005, K58)', async () => {
+    const { user, dialog } = await openForm()
+    await user.click(within(dialog).getByLabelText('Risikoeier'))
+    await user.keyboard('{ArrowDown}')
+    expect(
+      within(within(dialog).getByRole('listbox'))
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['E-1 – Ola Åsen', 'E-2 – Kari Nordmann'])
   })
 
   it('forkaster utfylte felt ved Avbryt', async () => {

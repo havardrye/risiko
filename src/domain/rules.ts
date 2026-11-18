@@ -67,6 +67,17 @@ export function isCodeTaken(
   )
 }
 
+/**
+ * Elementet med gitt ID, eller undefined (spec 005, K57, K60). Samme regel
+ * som `isCodeTaken`: store/små bokstaver og overflødige mellomrom teller
+ * ikke. Elementer uten ID blir aldri funnet, heller ikke med tom tekst.
+ */
+export function findByCode<T extends { code?: string }>(items: readonly T[], code: string): T | undefined {
+  const wanted = normalizeName(code)
+  if (wanted === '') return undefined
+  return items.find((item) => item.code !== undefined && normalizeName(item.code) === wanted)
+}
+
 /** Elementene som mangler ID, per type (K54). */
 export interface MissingCodes {
   risks: Risk[]

@@ -112,7 +112,16 @@ export function RiskTable({ risks, sort, onSortChange, onEdit, onDelete }: RiskT
               <td>{ownerNames.get(risk.ownerId)}</td>
               <td>{themeNames.get(risk.themeId)}</td>
               <td>{areaNames.get(risk.areaId)}</td>
-              <td className="numeric">{score(risk.likelihood, risk.consequence)}</td>
+              <td className="numeric nowrap">
+                {/* K56: utregningen vises, f.eks. «4x5=20». Skjermlesere får den som ord. */}
+                <span aria-hidden="true">
+                  {risk.likelihood}x{risk.consequence}={score(risk.likelihood, risk.consequence)}
+                </span>
+                <span className="visually-hidden">
+                  sannsynlighet {risk.likelihood}, konsekvens {risk.consequence}, score{' '}
+                  {score(risk.likelihood, risk.consequence)}
+                </span>
+              </td>
               <td>
                 <LevelBadge type={risk.type} level={level(risk.likelihood, risk.consequence)} />
               </td>

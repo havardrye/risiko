@@ -24,21 +24,37 @@ function workbook(sheets: Record<string, CellValue[][]>): WorkbookRows {
   )
 }
 
-const RISK_HEADERS = ['Tittel', 'Beskrivelse', 'Type', 'Eier', 'Tema', 'Område', 'Sannsynlighet', 'Konsekvens']
+const RISK_HEADERS = [
+  'Tittel',
+  'Beskrivelse',
+  'Type',
+  'Eier-ID',
+  'Tema-ID',
+  'Område-ID',
+  'Sannsynlighet',
+  'Konsekvens',
+]
 
 const DATA_SHEETS = ['risikoer', 'eiere', 'temaer', 'områder']
+const REFERENCE_SHEETS: Record<string, string> = { 'eier-id': 'eiere', 'tema-id': 'temaer', 'område-id': 'områder' }
 const isBlank = (cell: CellValue | undefined) => cell === null || cell === undefined || String(cell).trim() === ''
+const norm = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('nb')
 
 /**
- * Gir datafanene en ID-kolonne først (spec 004) med unike ID-er, f.eks.
- * «Ri-1», «Ei-2». Faner som allerede har ID-kolonne, og helt tomme rader,
- * blir stående som de er. Tester av selve ID-kolonnen bruker `workbook()`.
+ * Gjør testfilene lette å skrive og lese:
+ * 1. Datafanene får en ID-kolonne først (spec 004) med unike ID-er, f.eks.
+ *    «Ri-1», «Ei-2». Faner som allerede har ID-kolonne, og helt tomme rader,
+ *    blir stående som de er.
+ * 2. I Risikoer kan Eier-ID, Tema-ID og Område-ID skrives med *navn*
+ *    (spec 005). Navn som finnes i fanen de viser til, byttes ut med ID-en
+ *    der. Andre verdier blir stående, så tester av ukjente ID-er virker.
+ * Tester av selve kolonnene bruker `workbook()` direkte.
  */
 function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellValue[][]> {
-  return Object.fromEntries(
+  const coded = Object.fromEntries(
     Object.entries(sheets).map(([name, [headers = [], ...rows]]) => {
-      const isData = DATA_SHEETS.includes(name.trim().toLocaleLowerCase('nb'))
-      const hasCode = headers.some((header) => String(header ?? '').trim().toLocaleLowerCase('nb') === 'id')
+      const isData = DATA_SHEETS.includes(norm(name))
+      const hasCode = headers.some((header) => norm(header) === 'id')
       if (!isData || hasCode) return [name, [headers, ...rows]]
       const prefix = name.trim().slice(0, 2)
       return [
@@ -46,6 +62,35 @@ function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellVa
         [
           ['ID', ...headers],
           ...rows.map((cells, index) => [cells.every(isBlank) ? null : `${prefix}-${index + 1}`, ...cells]),
+        ],
+      ]
+    }),
+  ) as Record<string, CellValue[][]>
+
+  // Navn → ID i fanene Eiere, Temaer og Områder.
+  const codeByName = (sheetName: string) => {
+    const entry = Object.entries(coded).find(([name]) => norm(name) === sheetName)
+    if (!entry) return new Map<string, CellValue>()
+    const [headers = [], ...rows] = entry[1]
+    const codeAt = headers.findIndex((header) => norm(header) === 'id')
+    const nameAt = headers.findIndex((header) => norm(header) === 'navn')
+    return new Map(rows.filter((row) => !isBlank(row[codeAt])).map((row) => [norm(row[nameAt]), row[codeAt] ?? null]))
+  }
+
+  return Object.fromEntries(
+    Object.entries(coded).map(([name, [headers = [], ...rows]]) => {
+      if (norm(name) !== 'risikoer') return [name, [headers, ...rows]]
+      const translations = headers.map((header) => {
+        const target = REFERENCE_SHEETS[norm(header)]
+        return target ? codeByName(target) : undefined
+      })
+      return [
+        name,
+        [
+          headers,
+          ...rows.map((cells) =>
+            cells.map((cell, index) => translations[index]?.get(norm(cell)) ?? cell),
+          ),
         ],
       ]
     }),
@@ -89,9 +134,9 @@ describe('parseSheets – gyldig fil', () => {
           title: 'Leverandør går konkurs',
           description: 'Viktig leverandør',
           type: 'threat',
-          owner: 'Kari Nordmann',
-          theme: 'Leverandør',
-          area: 'IT',
+          owner: 'Ei-1',
+          theme: 'Te-1',
+          area: 'Om-1',
           likelihood: 2,
           consequence: 5,
         },
@@ -211,9 +256,9 @@ describe('parseSheets – ugyldige verdier (K28)', () => {
     expect(errors).toEqual([
       'Risikoer, rad 3, Tittel: Tittel er påkrevd',
       'Risikoer, rad 3, Type: Type er påkrevd',
-      'Risikoer, rad 3, Eier: Eier er påkrevd',
-      'Risikoer, rad 3, Tema: Tema er påkrevd',
-      'Risikoer, rad 3, Område: Område er påkrevd',
+      'Risikoer, rad 3, Eier-ID: Eier-ID er påkrevd',
+      'Risikoer, rad 3, Tema-ID: Tema-ID er påkrevd',
+      'Risikoer, rad 3, Område-ID: Område-ID er påkrevd',
       'Risikoer, rad 3, Sannsynlighet: Sannsynlighet er påkrevd',
       'Risikoer, rad 3, Konsekvens: Konsekvens er påkrevd',
     ])
@@ -373,10 +418,10 @@ describe('parseWorkbook – gyldig fil (K26)', () => {
     })
   })
 
-  it('finner eier, tema og område uten hensyn til store bokstaver og mellomrom', () => {
+  it('finner eier, tema og område på ID uten hensyn til store bokstaver og mellomrom (spec 005)', () => {
     const result = parse(
       validFile({
-        Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', '  kari   NORDMANN ', 'leverandør', 'it', 1, 1]],
+        Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', ' ei-1 ', 'te-1', 'OM-1', 1, 1]],
       }),
     )
     expect(result.ok).toBe(true)
@@ -403,21 +448,21 @@ describe('parseWorkbook – helheten (K28, K29)', () => {
           Risikoer: [
             RISK_HEADERS,
             ['A', null, 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1],
-            ['B', null, 'Trussel', 'Ola Nordman', 'Leverandør', 'IT', 1, 1],
+            ['B', null, 'Trussel', 'E-9', 'Leverandør', 'IT', 1, 1],
           ],
         }),
       ),
-    ).toEqual(['Risikoer, rad 3, Eier: «Ola Nordman» finnes ikke i fanen «Eiere»'])
+    ).toEqual(['Risikoer, rad 3, Eier-ID: Ingen eier har ID «E-9» i fanen «Eiere»'])
   })
 
   it('melder tema og område som ikke finnes', () => {
     expect(
       failures(
-        validFile({ Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', 'Kari Nordmann', 'Lønn', 'HR', 1, 1]] }),
+        validFile({ Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', 'Kari Nordmann', 'T-9', 'O-9', 1, 1]] }),
       ),
     ).toEqual([
-      'Risikoer, rad 2, Tema: «Lønn» finnes ikke i fanen «Temaer»',
-      'Risikoer, rad 2, Område: «HR» finnes ikke i fanen «Områder»',
+      'Risikoer, rad 2, Tema-ID: Ingen tema har ID «T-9» i fanen «Temaer»',
+      'Risikoer, rad 2, Område-ID: Ingen område har ID «O-9» i fanen «Områder»',
     ])
   })
 
@@ -458,14 +503,14 @@ describe('parseWorkbook – helheten (K28, K29)', () => {
       validFile({
         Risikoer: [
           RISK_HEADERS,
-          ['A', null, 'Trussel', 'Ukjent', 'Leverandør', 'IT', 1, 1],
+          ['A', null, 'Trussel', 'E-9', 'Leverandør', 'IT', 1, 1],
           ['B', null, 'Fare', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1],
         ],
         Eiere: [['Navn', 'E-post'], ['Kari Nordmann', null], ['Per', 'ugyldig']],
       }),
     )
     expect(errors).toEqual([
-      'Risikoer, rad 2, Eier: «Ukjent» finnes ikke i fanen «Eiere»',
+      'Risikoer, rad 2, Eier-ID: Ingen eier har ID «E-9» i fanen «Eiere»',
       'Risikoer, rad 3, Type: «Fare» er ikke en lovlig verdi. Bruk «Trussel» eller «Mulighet».',
       'Eiere, rad 3, E-post: Ugyldig e-postadresse',
     ])
@@ -540,5 +585,52 @@ describe('ID i Excel (spec 004, K51–K53)', () => {
   it('leser en ID som er et tall i Excel, som tekst', () => {
     const result = parse(validFile({ Risikoer: [HEADERS, row(7, 'A')] }))
     expect(result.ok && result.data.risks[0]?.code).toBe('7')
+  })
+})
+
+describe('Risikoer viser til ID (spec 005, K60)', () => {
+  it('avviser en fil med de gamle kolonnene Eier, Tema og Område (akseptkriterium)', () => {
+    const file = workbook({
+      Risikoer: [
+        ['ID', 'Tittel', 'Type', 'Eier', 'Tema', 'Område', 'Sannsynlighet', 'Konsekvens'],
+        ['R-1', 'A', 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1],
+      ],
+      Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']],
+      Temaer: [['ID', 'Navn'], ['T-1', 'Leverandør']],
+      Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år']],
+    })
+    expect(failures(file)).toEqual([
+      'Risikoer, Eier-ID: Kolonnen «Eier-ID» mangler',
+      'Risikoer, Tema-ID: Kolonnen «Tema-ID» mangler',
+      'Risikoer, Område-ID: Kolonnen «Område-ID» mangler',
+    ])
+  })
+
+  it('godtar ikke navn i Eier-ID, selv om navnet finnes', () => {
+    const file = workbook({
+      Risikoer: [
+        ['ID', 'Tittel', 'Type', 'Eier-ID', 'Tema-ID', 'Område-ID', 'Sannsynlighet', 'Konsekvens'],
+        ['R-1', 'A', 'Trussel', 'Kari Nordmann', 'T-1', 'O-1', 1, 1],
+      ],
+      Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']],
+      Temaer: [['ID', 'Navn'], ['T-1', 'Leverandør']],
+      Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år']],
+    })
+    expect(failures(file)).toEqual(['Risikoer, rad 2, Eier-ID: Ingen eier har ID «Kari Nordmann» i fanen «Eiere»'])
+  })
+
+  it('ignorerer informasjonskolonnene Eier, Tema og Område ved import', () => {
+    const file = workbook({
+      Risikoer: [
+        ['ID', 'Tittel', 'Type', 'Eier-ID', 'Tema-ID', 'Område-ID', 'Sannsynlighet', 'Konsekvens', 'Eier', 'Tema', 'Område'],
+        ['R-1', 'A', 'Trussel', 'E-1', 'T-1', 'O-1', 1, 1, 'Feil navn', 'Feil tema', 'Feil område'],
+      ],
+      Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']],
+      Temaer: [['ID', 'Navn'], ['T-1', 'Leverandør']],
+      Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år']],
+    })
+    const result = parse(file)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.risks[0]?.ownerId).toBe(result.data.owners[0]?.id)
   })
 })

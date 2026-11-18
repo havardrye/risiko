@@ -11,7 +11,7 @@ import {
   THEME_SHEET,
   type SheetSpec,
 } from '../../domain/excelFormat.ts'
-import { findIntegrityErrors, normalizeName } from '../../domain/rules.ts'
+import { findByCode, findIntegrityErrors, normalizeName } from '../../domain/rules.ts'
 import { HORIZONS, RISK_TYPES } from '../../domain/scales.ts'
 import {
   appDataSchema,
@@ -118,8 +118,8 @@ export type ReferenceSheet = 'owners' | 'themes' | 'areas'
 export interface RejectedRows {
   /** Usann når fanen mangler eller mangler kolonner, så ingen rader ble lest. */
   sheetRead: boolean
-  /** Navnene på rader som ble avvist på grunn av feil. */
-  names: string[]
+  /** ID-ene til rader som ble avvist på grunn av feil (spec 005: risikoer viser til ID). */
+  codes: string[]
 }
 
 interface SheetResult<T> extends RejectedRows {
@@ -156,7 +156,7 @@ function parseSheet<K extends string, T>(
   { sheet, convert, schema }: RowSchema<K>,
   errors: CellError[],
 ): SheetResult<T> {
-  const unread: SheetResult<T> = { rows: [], sheetRead: false, names: [] }
+  const unread: SheetResult<T> = { rows: [], sheetRead: false, codes: [] }
   const fileSheetName = findSheetName(Object.keys(workbook), sheet.name)
   if (fileSheetName === undefined) {
     errors.push({ sheet: sheet.name, message: `Fanen «${sheet.name}» mangler` })
@@ -180,7 +180,7 @@ function parseSheet<K extends string, T>(
 
   const headerOf = Object.fromEntries(sheet.columns.map((column) => [column.key, column.header])) as Record<K, string>
   const parsed: ParsedRow<T>[] = []
-  const rejectedNames: string[] = []
+  const rejectedCodes: string[] = []
 
   for (const { rowNumber, cells } of rows) {
     const known = sheet.columns.flatMap((column) => {
@@ -237,12 +237,12 @@ function parseSheet<K extends string, T>(
 
     if (rowErrors.length > 0) {
       errors.push(...rowErrors)
-      if (typeof input.name === 'string') rejectedNames.push(input.name)
+      if (typeof input.code === 'string') rejectedCodes.push(input.code)
     } else if (validation.success) {
       parsed.push({ rowNumber, value: validation.data as T })
     }
   }
-  return { rows: parsed, sheetRead: true, names: rejectedNames }
+  return { rows: parsed, sheetRead: true, codes: rejectedCodes }
 }
 
 function isProblem(cell: CellValue | undefined): cell is { problem: string } {
@@ -290,7 +290,7 @@ export function parseSheets(workbook: WorkbookRows): ParsedSheets {
   const owners = parseSheet<'code' | 'name' | 'email', OwnerInput>(workbook, OWNERS, errors)
   const themes = parseSheet<'code' | 'name' | 'description', ThemeInput>(workbook, THEMES, errors)
   const areas = parseSheet<'code' | 'name' | 'horizon' | 'description', AreaInput>(workbook, AREAS, errors)
-  const rejected = ({ sheetRead, names }: RejectedRows): RejectedRows => ({ sheetRead, names })
+  const rejected = ({ sheetRead, codes }: RejectedRows): RejectedRows => ({ sheetRead, codes })
   return {
     risks: risks.rows,
     owners: owners.rows,
@@ -356,15 +356,16 @@ const NAMES_UNIQUE = 'Navn må være unike.'
 const CODES_UNIQUE = 'ID må være unik.'
 
 const REFERENCES = [
-  { key: 'owner', sheet: 'owners', column: 'Eier', sheetName: OWNER_SHEET.name },
-  { key: 'theme', sheet: 'themes', column: 'Tema', sheetName: THEME_SHEET.name },
-  { key: 'area', sheet: 'areas', column: 'Område', sheetName: AREA_SHEET.name },
+  { key: 'owner', sheet: 'owners', column: 'Eier-ID', noun: 'eier', sheetName: OWNER_SHEET.name },
+  { key: 'theme', sheet: 'themes', column: 'Tema-ID', noun: 'tema', sheetName: THEME_SHEET.name },
+  { key: 'area', sheet: 'areas', column: 'Område-ID', noun: 'område', sheetName: AREA_SHEET.name },
 ] as const
 
 /**
  * Tolker hele filen (spec 002, K26–K30): leser fanene, kontrollerer unike
- * navn og at eier, tema og område i hver risiko finnes, og bygger et nytt
- * datasett. Én feil er nok til at ingenting tas i bruk (K28).
+ * navn og ID-er og at eier, tema og område i hver risiko finnes (slått opp
+ * på ID, spec 005 K60), og bygger et nytt datasett. Én feil er nok til at
+ * ingenting tas i bruk (K28).
  */
 export function parseWorkbook(workbook: WorkbookRows, options: ParseOptions = {}): ExcelImportResult {
   const { now = new Date(), newId = () => crypto.randomUUID() } = options
@@ -385,35 +386,30 @@ export function parseWorkbook(workbook: WorkbookRows, options: ParseOptions = {}
   const themes: Theme[] = sheets.themes.map(({ value }) => ({ id: newId(), ...value }))
   const areas: Area[] = sheets.areas.map(({ value }) => ({ id: newId(), ...value }))
 
-  // Første forekomst vinner; dubletter er allerede meldt som feil.
-  const idsByName = (items: readonly { id: Id; name: string }[]) => {
-    const map = new Map<string, Id>()
-    for (const item of [...items].reverse()) map.set(normalizeName(item.name), item.id)
-    return map
-  }
-  const lookup = { owners: idsByName(owners), themes: idsByName(themes), areas: idsByName(areas) }
+  // Første forekomst vinner; like ID-er er allerede meldt som feil.
+  const lookup = { owners, themes, areas }
 
   const timestamp = now.toISOString()
   const risks: Risk[] = []
   for (const { rowNumber, value } of sheets.risks) {
     const ids: Partial<Record<'owner' | 'theme' | 'area', Id>> = {}
     for (const reference of REFERENCES) {
-      const name = value[reference.key]
-      const id = lookup[reference.sheet].get(normalizeName(name))
-      if (id !== undefined) {
-        ids[reference.key] = id
+      const code = value[reference.key]
+      const found = findByCode<{ id: Id; code?: string }>(lookup[reference.sheet], code)
+      if (found) {
+        ids[reference.key] = found.id
         continue
       }
-      // Følgefeil unngås: fanen ble ikke lest, eller raden med navnet har egne feil.
+      // Følgefeil unngås: fanen ble ikke lest, eller raden med ID-en har egne feil.
       const rejected = sheets.rejected[reference.sheet]
       const explained =
-        !rejected.sheetRead || rejected.names.some((other) => normalizeName(other) === normalizeName(name))
+        !rejected.sheetRead || rejected.codes.some((other) => normalizeName(other) === normalizeName(code))
       if (!explained) {
         errors.push({
           sheet: RISK_SHEET.name,
           row: rowNumber,
           column: reference.column,
-          message: `«${name}» finnes ikke i fanen «${reference.sheetName}»`,
+          message: `Ingen ${reference.noun} har ID «${code}» i fanen «${reference.sheetName}»`,
         })
       }
     }

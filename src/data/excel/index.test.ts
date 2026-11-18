@@ -59,7 +59,7 @@ describe('importExcel (K26–K30)', { timeout: 20_000 }, () => {
     expect(result).toEqual({
       ok: false,
       message: 'Filen har 1 feil. Rett den i Excel og importer på nytt.',
-      details: ['Risikoer, rad 2, Eier: Eier er påkrevd'],
+      details: ['Risikoer, rad 2, Eier-ID: Eier-ID er påkrevd'],
     })
   })
 
@@ -76,7 +76,7 @@ describe('importExcel (K26–K30)', { timeout: 20_000 }, () => {
     if (result.ok) return
     expect(result.message).toBe('Filen har 60 feil. Rett dem i Excel og importer på nytt.')
     expect(result.details).toHaveLength(MAX_SHOWN_ERRORS + 1)
-    expect(result.details[0]).toBe('Risikoer, rad 2, Eier: Eier er påkrevd')
+    expect(result.details[0]).toBe('Risikoer, rad 2, Eier-ID: Eier-ID er påkrevd')
     expect(result.details.at(-1)).toBe('… og 10 feil til.')
   })
 

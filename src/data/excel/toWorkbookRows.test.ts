@@ -52,7 +52,7 @@ function sample(): AppData {
 }
 
 describe('toWorkbookRows (K35)', () => {
-  it('har fanene og kolonnene fra formatet, med Score og Nivå til slutt i Risikoer', () => {
+  it('har fanene og kolonnene fra formatet, med informasjonskolonnene til slutt i Risikoer', () => {
     const rows = toWorkbookRows(sample())
     expect(Object.keys(rows)).toEqual(['Risikoer', 'Eiere', 'Temaer', 'Områder'])
     expect(rows.Risikoer.headers).toEqual([
@@ -60,20 +60,23 @@ describe('toWorkbookRows (K35)', () => {
       'Tittel',
       'Beskrivelse',
       'Type',
-      'Eier',
-      'Tema',
-      'Område',
+      'Eier-ID',
+      'Tema-ID',
+      'Område-ID',
       'Sannsynlighet',
       'Konsekvens',
       'Score',
       'Nivå',
+      'Eier',
+      'Tema',
+      'Område',
     ])
     expect(rows.Eiere.headers).toEqual(['ID', 'Navn', 'E-post'])
     expect(rows.Temaer.headers).toEqual(['ID', 'Navn', 'Beskrivelse'])
     expect(rows.Områder.headers).toEqual(['ID', 'Navn', 'Når?', 'Beskrivelse'])
   })
 
-  it('skriver risikoer med navn, visningstekster, score og nivå', () => {
+  it('skriver risikoer med ID-er, visningstekster, score, nivå og navnene bakerst', () => {
     expect(toWorkbookRows(sample()).Risikoer.rows).toEqual([
       {
         rowNumber: 2,
@@ -82,18 +85,36 @@ describe('toWorkbookRows (K35)', () => {
           'Leverandør går konkurs',
           'Viktig leverandør',
           'Trussel',
-          'Kari Nordmann',
-          'Leverandør',
-          'IT',
+          'E-1',
+          'T-1',
+          'O-1',
           4,
           5,
           20,
           'Høy',
+          'Kari Nordmann',
+          'Leverandør',
+          'IT',
         ],
       },
       {
         rowNumber: 3,
-        cells: ['R-2', '=Ny avtale', null, 'Mulighet', 'Ola Nordmann', 'Informasjonssikkerhet', 'Økonomi', 1, 4, 4, 'Middels'],
+        cells: [
+          'R-2',
+          '=Ny avtale',
+          null,
+          'Mulighet',
+          'E-2',
+          'T-2',
+          'O-2',
+          1,
+          4,
+          4,
+          'Middels',
+          'Ola Nordmann',
+          'Informasjonssikkerhet',
+          'Økonomi',
+        ],
       },
     ])
   })

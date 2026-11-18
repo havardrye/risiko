@@ -5,10 +5,20 @@ import {
   RISK_TYPE_LABELS,
   RISK_TYPES,
 } from '../../domain/scales.ts'
-import { CODE_MAX_LENGTH, type Rating, type Risk, type RiskInput, type RiskType } from '../../domain/schema.ts'
+import { findByCode } from '../../domain/rules.ts'
+import {
+  CODE_MAX_LENGTH,
+  type AppData,
+  type Id,
+  type Rating,
+  type Risk,
+  type RiskInput,
+  type RiskType,
+} from '../../domain/schema.ts'
 import { level, RATINGS, score } from '../../domain/scoring.ts'
 import { useAppData, useDataStore } from '../../state/dataContext.ts'
 import { DataError } from '../../state/dataStore.ts'
+import { CodeCombobox } from './CodeCombobox.tsx'
 import { DialogActions } from './Dialog.tsx'
 import { FormField } from './FormField.tsx'
 import { useFormErrors } from './useFormErrors.ts'
@@ -26,10 +36,55 @@ function toRating(value: string): Rating | undefined {
   return (RATINGS as readonly number[]).includes(number) ? (number as Rating) : undefined
 }
 
-function byName<T extends { name: string }>(items: readonly T[]): T[] {
-  return [...items].sort((a, b) =>
-    a.name.localeCompare(b.name, 'nb', { sensitivity: 'base', numeric: true }),
-  )
+/** Koblingene til eier, tema og område, angitt med ID (spec 005, K57–K59). */
+type ReferenceField = 'ownerId' | 'themeId' | 'areaId'
+
+const REFERENCE_FIELDS: Record<ReferenceField, { label: string; noun: string; list: 'owners' | 'themes' | 'areas' }> = {
+  ownerId: { label: 'Risikoeier', noun: 'risikoeier', list: 'owners' },
+  themeId: { label: 'Tema', noun: 'tema', list: 'themes' },
+  areaId: { label: 'Område', noun: 'område', list: 'areas' },
+}
+
+const FIELD_ORDER: readonly ReferenceField[] = ['ownerId', 'themeId', 'areaId']
+
+/** Merknaden etter navnet når elementet mangler ID (K59). */
+const MISSING_SUFFIX = ' (mangler ID)'
+
+/** Teksten i feltet og om brukeren har endret den. */
+interface ReferenceText {
+  text: string
+  edited: boolean
+}
+
+/**
+ * Det feltet viser når skjemaet åpnes: ID-en, eller «Navn (mangler ID)» for
+ * elementer fra før spec 004 (K59). Tomt for en ny risiko.
+ */
+function initialText(data: AppData, field: ReferenceField, risk: Risk | undefined): ReferenceText {
+  const item = risk ? data[REFERENCE_FIELDS[field].list].find((candidate) => candidate.id === risk[field]) : undefined
+  if (!item) return { text: '', edited: false }
+  return { text: item.code ?? `${item.name}${MISSING_SUFFIX}`, edited: false }
+}
+
+/**
+ * Gjør teksten om til intern id (K57, K59). Er feltet uendret og elementet
+ * mangler ID, beholdes koblingen. Gir id-en eller en feilmelding.
+ */
+function resolveReference(
+  data: AppData,
+  field: ReferenceField,
+  value: ReferenceText,
+  risk: Risk | undefined,
+): { id: Id } | { error: string } {
+  const { label, noun, list } = REFERENCE_FIELDS[field]
+  if (risk && !value.edited) {
+    const current = data[list].find((item) => item.id === risk[field])
+    if (current && current.code === undefined) return { id: current.id }
+  }
+  const text = value.text.trim()
+  if (text === '') return { error: `${label} er påkrevd` }
+  const found = findByCode(data[list], text)
+  return found ? { id: found.id } : { error: `Ingen ${noun} har ID «${text}».` }
 }
 
 /**
@@ -46,19 +101,27 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
     code: risk?.code ?? '',
     title: risk?.title ?? '',
     description: risk?.description ?? '',
-    ownerId: risk?.ownerId ?? '',
-    themeId: risk?.themeId ?? '',
-    areaId: risk?.areaId ?? '',
     likelihood: risk ? String(risk.likelihood) : '',
     consequence: risk ? String(risk.consequence) : '',
   })
+  const [references, setReferences] = useState<Record<ReferenceField, ReferenceText>>(() => ({
+    ownerId: initialText(data, 'ownerId', risk),
+    themeId: initialText(data, 'themeId', risk),
+    areaId: initialText(data, 'areaId', risk),
+  }))
   const [type, setType] = useState<RiskType>(risk?.type ?? 'threat')
   const [formError, setFormError] = useState<string>()
   const [saving, setSaving] = useState(false)
 
-  const owners = useMemo(() => byName(data.owners), [data.owners])
-  const themes = useMemo(() => byName(data.themes), [data.themes])
-  const areas = useMemo(() => byName(data.areas), [data.areas])
+  const options = useMemo(
+    () => ({ ownerId: data.owners, themeId: data.themes, areaId: data.areas }),
+    [data.owners, data.themes, data.areas],
+  )
+
+  const changeReference = (field: ReferenceField) => (text: string) => {
+    setReferences((current) => ({ ...current, [field]: { text, edited: true } }))
+    clearError(field)
+  }
 
   const likelihoodValue = toRating(values.likelihood)
   const consequenceValue = toRating(values.consequence)
@@ -76,8 +139,21 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
     event.preventDefault()
     setSaving(true)
     setFormError(undefined)
+    // ID-ene gjøres om til interne id-er. Feil her vises sammen med eventuelle
+    // andre feil fra lagringen, som avviser tomme koblinger uten å lagre.
+    const referenceErrors: Record<string, string> = {}
+    const ids = {} as Record<ReferenceField, string>
+    for (const field of FIELD_ORDER) {
+      const result = resolveReference(data, field, references[field], risk)
+      if ('id' in result) ids[field] = result.id
+      else {
+        ids[field] = ''
+        referenceErrors[field] = result.error
+      }
+    }
     const input = {
       ...values,
+      ...ids,
       type,
       likelihood: likelihoodValue,
       consequence: consequenceValue,
@@ -89,7 +165,7 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
     } catch (error) {
       setSaving(false)
       if (error instanceof DataError && Object.keys(error.fieldErrors).length > 0) {
-        showErrors(error.fieldErrors)
+        showErrors({ ...error.fieldErrors, ...referenceErrors })
       } else {
         showErrors({})
         setFormError(error instanceof DataError ? error.message : 'Kunne ikke lagre. Prøv igjen.')
@@ -158,44 +234,19 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
       </fieldset>
 
       <div className={styles.grid}>
-        <FormField label="Risikoeier" required error={errors.ownerId}>
-          {(control) => (
-            <select {...control} value={values.ownerId} onChange={change('ownerId')}>
-              <option value="">Velg risikoeier</option>
-              {owners.map((owner) => (
-                <option key={owner.id} value={owner.id}>
-                  {owner.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </FormField>
-
-        <FormField label="Tema" required error={errors.themeId}>
-          {(control) => (
-            <select {...control} value={values.themeId} onChange={change('themeId')}>
-              <option value="">Velg tema</option>
-              {themes.map((theme) => (
-                <option key={theme.id} value={theme.id}>
-                  {theme.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </FormField>
-
-        <FormField label="Område" required error={errors.areaId}>
-          {(control) => (
-            <select {...control} value={values.areaId} onChange={change('areaId')}>
-              <option value="">Velg område</option>
-              {areas.map((area) => (
-                <option key={area.id} value={area.id}>
-                  {area.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </FormField>
+        {FIELD_ORDER.map((field) => (
+          <FormField key={field} label={REFERENCE_FIELDS[field].label} required error={errors[field]}>
+            {(control) => (
+              <CodeCombobox
+                control={control}
+                value={references[field].text}
+                onChange={changeReference(field)}
+                options={options[field]}
+                selectOnFocus={!references[field].edited && references[field].text.endsWith(MISSING_SUFFIX)}
+              />
+            )}
+          </FormField>
+        ))}
       </div>
 
       <div className={styles.grid}>

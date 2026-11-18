@@ -83,6 +83,12 @@ Gjøres i rekkefølge, én om gangen. Hver oppgave er ferdig når «Ferdig når�
 - [x] **T24 Områderegisteret.** Registerkomponenten støtter flere ekstra felt og nedtrekksmeny; områder får «Når?» som påkrevd felt og egen kolonne. (K25)
   *Ferdig når:* tester dekker akseptkriteriene for K25, og visning med gamle data er sjekket i nettleser.
 
+## Fase 12 – Score som utregning (K56)
+
+- [x] **T47 Score som «4x5=20» i registeret.** Score-kolonnen i `RiskTable` viser `[sannsynlighet]x[konsekvens]=[score]`. Den synlige teksten er `aria-hidden`, og skjermlesere får «sannsynlighet 4, konsekvens 5, score 20» som skjult tekst. Kolonnen sorteres fortsatt på scoren. (K56)
+  *Ferdig når:* tester dekker akseptkriteriet «4x5=20», skjermlesertekst og at sorteringen fortsatt følger scoren.
+  *Resultat (2026-11-18):* 3 nye tester. Testhjelperen `cellTexts` i `RiskTable.test` leser nå bare synlig tekst. Sjekket i nettleseren: «4x5=20», «3x3=9» og «1x4=4», høyrejustert og uten linjeskift.
+
 ## Sporbarhet
 
 | Krav | Oppgaver |
@@ -102,6 +108,7 @@ Gjøres i rekkefølge, én om gangen. Hver oppgave er ferdig når «Ferdig når�
 | K23 | T19 |
 | K24 | T22 |
 | K25 | T23, T24 |
+| K56 | T47 |
 
 ## Sjekkliste fra gjennomgangen (T20, 2026-11-17)
 
@@ -134,6 +141,7 @@ Hvert krav er sjekket mot automatiske tester og i kjørende app (Chrome, utvikli
 | K23 Varsel om lokal lagring med snarvei til eksport | [x] | `FirstUse.test`; vises på alle sider |
 | K24 Verktøytips på matrisecellene | [x] | `RiskMatrixTooltip.test`; hover og Escape sjekket i nettleser (T22) |
 | K25 «Når?» på områder, med migrering av eldre data | [x] | `ThemesAndAreasPages.test`, `migrations.test`, `dataStore.test`; gamle data og nytt område sjekket i nettleser (T23–T24) |
+| K56 Score som «4x5=20» i registeret | [x] | `RiskTable.test`; sjekket i nettleser (T47) |
 
 ### Akseptkriterier
 

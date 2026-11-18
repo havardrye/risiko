@@ -16,6 +16,8 @@ Appen tilbyr en nedlastbar **mal** med riktige faner og kolonner, nedtrekksliste
 ### Faner og kolonner
 
 > **Endret av [004-egne-id-er](../004-egne-id-er/spec.md) (K51–K53):** Alle fire faner har i tillegg kolonnen **«ID»** først. Den er påkrevd, må være unik i fanen og kan være høyst 20 tegn. Filer uten ID-kolonne avvises.
+>
+> **Endret av [005-id-koblinger](../005-id-koblinger/spec.md) (K60–K62):** I Risikoer erstattes Eier, Tema og Område av Eier-ID, Tema-ID og Område-ID. Navnene står med som informasjonskolonner ved eksport.
 
 Fanenavn og overskrifter må være som under. Rekkefølgen på kolonnene er fri, og store/små bokstaver og mellomrom før og etter ignoreres. Kolonner appen ikke kjenner, ignoreres (de kan brukes til egne notater).
 

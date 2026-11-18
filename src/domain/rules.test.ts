@@ -1,6 +1,7 @@
 import {
   countMissingCodes,
   countRisksBy,
+  findByCode,
   findIntegrityErrors,
   findMissingCodes,
   isCodeTaken,
@@ -236,5 +237,29 @@ describe('egne ID-er (spec 004)', () => {
       data.risks = data.risks.map((item, index) => ({ ...item, code: `R-${index}` }))
       expect(countMissingCodes(findMissingCodes(data))).toBe(0)
     })
+  })
+})
+
+describe('findByCode (spec 005, K57, K60)', () => {
+  const items = [
+    { id: 'o1', code: 'E-01', name: 'Kari Nordmann' },
+    { id: 'o2', code: 'E-10', name: 'Ola Åsen' },
+    { id: 'o3', name: 'Per uten ID' },
+  ]
+
+  it('finner elementet uten hensyn til store og små bokstaver og mellomrom', () => {
+    expect(findByCode(items, 'e-01 ')?.id).toBe('o1')
+    expect(findByCode(items, ' E-10')?.id).toBe('o2')
+  })
+
+  it('gir undefined for en ukjent ID, og finner ikke delvis treff', () => {
+    expect(findByCode(items, 'E-9')).toBeUndefined()
+    expect(findByCode(items, 'E-1')).toBeUndefined()
+  })
+
+  it('finner aldri elementer uten ID, heller ikke med tom tekst', () => {
+    expect(findByCode(items, '')).toBeUndefined()
+    expect(findByCode(items, '   ')).toBeUndefined()
+    expect(findByCode([{ id: 'x', code: '' }], '')).toBeUndefined()
   })
 })

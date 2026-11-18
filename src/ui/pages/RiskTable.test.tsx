@@ -88,10 +88,15 @@ function rowFor(title: string) {
   return row
 }
 
+/** Synlig tekst i hver celle. Tekst bare for skjermlesere (`visually-hidden`) er utelatt. */
 function cellTexts(row: HTMLElement) {
   return Array.from(row.children)
     .slice(0, 9)
-    .map((cell) => cell.textContent)
+    .map((cell) => {
+      const copy = cell.cloneNode(true) as HTMLElement
+      copy.querySelectorAll('.visually-hidden').forEach((hidden) => hidden.remove())
+      return copy.textContent
+    })
 }
 
 describe('risikotabell (K3–K5)', () => {
@@ -111,7 +116,7 @@ describe('risikotabell (K3–K5)', () => {
       'Ola Åsen',
       'Sikkerhet',
       'IT',
-      '20',
+      '4x5=20',
       'Høy',
       '01.02.2026',
     ])
@@ -122,7 +127,7 @@ describe('risikotabell (K3–K5)', () => {
       'Kari Nordmann',
       'Leverandør',
       'Økonomi',
-      '15',
+      '3x5=15',
       'Stor',
       '20.04.2026',
     ])
@@ -130,7 +135,7 @@ describe('risikotabell (K3–K5)', () => {
 
   it('viser nivå fra nivåtabellen, ikke fra scoren', async () => {
     await openPage()
-    expect(cellTexts(rowFor('Ærlig tilbakemelding uteblir')).slice(6, 8)).toEqual(['4', 'Middels'])
+    expect(cellTexts(rowFor('Ærlig tilbakemelding uteblir')).slice(6, 8)).toEqual(['1x4=4', 'Middels'])
   })
 
   describe('sortering', () => {
@@ -216,7 +221,7 @@ describe('risikotabell (K3–K5)', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Lagre' }))
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(cellTexts(rowFor('Datainnbrudd')).slice(6, 8)).toEqual(['5', 'Middels'])
+      expect(cellTexts(rowFor('Datainnbrudd')).slice(6, 8)).toEqual(['1x5=5', 'Middels'])
       const saved = (await repository.load()).risks.find((r) => r.id === 'r2')
       expect(saved?.likelihood).toBe(1)
       expect(saved?.createdAt).toBe('2026-01-01T09:00:00.000Z')
@@ -319,5 +324,30 @@ describe('søk og sortering på ID (spec 004, K55)', () => {
     await screen.findByRole('heading', { level: 1, name: 'Risikoregister' })
     await user.type(screen.getByLabelText('Søk'), 'R-007')
     expect(titles()).toEqual(['Datainnbrudd'])
+  })
+})
+
+describe('score som utregning (K56)', () => {
+  it('viser «4x5=20» for sannsynlighet 4 og konsekvens 5 (akseptkriterium)', async () => {
+    await openPage()
+    const cell = rowFor('Datainnbrudd').children[6] as HTMLElement
+    expect(within(cell).getByText('4x5=20')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('gir skjermlesere utregningen som ord', async () => {
+    await openPage()
+    const cell = rowFor('Datainnbrudd').children[6] as HTMLElement
+    expect(within(cell).getByText('sannsynlighet 4, konsekvens 5, score 20')).toHaveClass('visually-hidden')
+  })
+
+  it('sorterer fortsatt på scoren, ikke på teksten', async () => {
+    await openPage()
+    // Standard er høyest score først: 20, 15, 10, 4. Som tekst ville «1x4=4» og «2x5=10» byttet plass.
+    expect(titles()).toEqual([
+      'Datainnbrudd',
+      'Ny støtteordning',
+      'Leverandør går konkurs',
+      'Ærlig tilbakemelding uteblir',
+    ])
   })
 })

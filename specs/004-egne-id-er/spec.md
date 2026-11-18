@@ -28,7 +28,7 @@ Teamet vil gi hver risiko, eier, tema og område sin egen ID, for eksempel «R-0
 
 ### L. Excel
 - **K51** Hver fane i Excel-formatet (002) får kolonnen **«ID»** først. Kolonnen er påkrevd. Excel-eksporten og malen har den med. Elementer uten ID får tom celle i eksporten.
-- **K52** I fanen Risikoer viser Eier, Tema og Område fortsatt til **navn**, som i dag. *(Avklart beslutning 2.)*
+- **K52** I fanen Risikoer viser Eier, Tema og Område fortsatt til **navn**, som i dag. *(Avklart beslutning 2.)* *(Erstattet av K60 i spec 005.)*
 - **K53** Importen kontrollerer ID som andre felt:
   - ID som mangler eller er lengre enn 20 tegn, gir feil med fane, rad og kolonne.
   - Like ID-er i samme fane gir feil på hver rad, med henvisning til den andre raden.
@@ -50,7 +50,7 @@ Teamet vil gi hver risiko, eier, tema og område sin egen ID, for eksempel «R-0
 
 ## Avklarte beslutninger
 1. **Formål:** ID-ene skal vises i appen. Stabile lenker etter import og kobling til andre systemer er ikke mål i denne spec-en. Bekreftet 2026-11-18.
-2. **Kobling i Excel:** Risikoer viser til eier, tema og område med navn, som i dag. Bekreftet 2026-11-18.
+2. **Kobling i Excel:** Risikoer viser til eier, tema og område med navn, som i dag. Bekreftet 2026-11-18. *(Erstattet av [005-id-koblinger](../005-id-koblinger/spec.md), K60: Risikoer viser nå til ID.)*
 3. **Påkrevd:** ID må alltid fylles ut, både i Excel og i appen. Appen lager aldri ID-er selv. Bekreftet 2026-11-18.
 4. **Regler:** Fritekst, unik innenfor sin type, uten hensyn til store og små bokstaver. Bekreftet 2026-11-18.
 5. **Eksisterende data:** Elementer som fantes før endringen, i nettleseren eller i eldre JSON-eksporter, får ingen ID automatisk. De vises uten ID og krever ID først når de endres. Bekreftet 2026-11-18.

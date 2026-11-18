@@ -122,13 +122,16 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
       'Tittel',
       'Beskrivelse',
       'Type',
-      'Eier',
-      'Tema',
-      'Område',
+      'Eier-ID',
+      'Tema-ID',
+      'Område-ID',
       'Sannsynlighet',
       'Konsekvens',
       'Score',
       'Nivå',
+      'Eier',
+      'Tema',
+      'Område',
     ])
     expect(sheet?.getRow(2).values).toEqual([
       undefined,
@@ -136,13 +139,16 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
       'Leverandør går konkurs',
       'Viktig leverandør',
       'Trussel',
-      'Kari Nordmann',
-      'Leverandør',
-      'IT',
+      'E-1',
+      'T-1',
+      'O-1',
       4,
       5,
       20,
       'Høy',
+      'Kari Nordmann',
+      'Leverandør',
+      'IT',
     ])
   })
 
@@ -182,7 +188,10 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
 
     expect(risks?.getCell('A2').dataValidation).toBeUndefined()
     expect(risks?.getCell('B2').dataValidation).toBeUndefined()
+    // Eier-ID, Tema-ID og Område-ID (E–G) har ingen nedtrekksliste (spec 005, K62).
     expect(risks?.getCell('E2').dataValidation).toBeUndefined()
+    expect(risks?.getCell('F2').dataValidation).toBeUndefined()
+    expect(risks?.getCell('G2').dataValidation).toBeUndefined()
     expect(risks?.getCell('D1').dataValidation).toBeUndefined()
   })
 
@@ -219,8 +228,8 @@ describe('writeTemplate (K33)', { timeout: 20_000 }, () => {
     fill('Temaer', [['T-1', 'Leverandør']])
     fill('Områder', [['O-1', 'IT', '0 - 3 år']])
     fill('Risikoer', [
-      ['R-1', 'Leverandør går konkurs', '', 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 2, 5],
-      ['R-2', 'Ny avtale', 'Bedre vilkår', 'Mulighet', 'Ola Nordmann', 'Leverandør', 'IT', 3, 4],
+      ['R-1', 'Leverandør går konkurs', '', 'Trussel', 'E-1', 'T-1', 'O-1', 2, 5],
+      ['R-2', 'Ny avtale', 'Bedre vilkår', 'Mulighet', 'E-2', 'T-1', 'O-1', 3, 4],
     ])
     const filled = new Blob([await workbook.xlsx.writeBuffer()])
 
@@ -233,5 +242,15 @@ describe('writeTemplate (K33)', { timeout: 20_000 }, () => {
         ['Ny avtale', 'opportunity', 3],
       ])
     }
+  })
+})
+
+describe('veiledningen for ID-koblinger (spec 005, K61, K62)', { timeout: 20_000 }, () => {
+  it('forklarer at Risikoer viser til ID-er, og at navnene bakerst bare er informasjon', async () => {
+    const sheet = (await load(await writeTemplate())).getWorksheet('Veiledning')
+    const texts: string[] = []
+    sheet?.eachRow((row) => row.eachCell((cell) => texts.push(String(cell.value))))
+    expect(texts.some((text) => text.includes('Eier-ID, Tema-ID og Område-ID i fanen Risikoer må være ID-er'))).toBe(true)
+    expect(texts.some((text) => text.includes('Score, Nivå, Eier, Tema og Område bakerst'))).toBe(true)
   })
 })

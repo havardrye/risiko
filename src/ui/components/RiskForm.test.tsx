@@ -16,11 +16,11 @@ function seed(): AppData {
   return {
     schemaVersion: 3,
     owners: [
-      { id: 'o1', name: 'Kari Nordmann' },
-      { id: 'o2', name: 'Ola Åsen' },
+      { id: 'o1', code: 'E-1', name: 'Kari Nordmann' },
+      { id: 'o2', code: 'E-2', name: 'Ola Åsen' },
     ],
-    themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
+    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør' }],
+    areas: [{ id: 'a1', code: 'O-1', name: 'IT', horizon: '0-3' }],
     risks: [
       {
         id: 'r1',
@@ -61,7 +61,8 @@ describe('RiskForm ved endring', () => {
     expect(screen.getByLabelText('Tittel')).toHaveValue('Ny støtteordning')
     expect(screen.getByLabelText('Beskrivelse (valgfritt)')).toHaveValue('Ekstern finansiering')
     expect(screen.getByLabelText('Mulighet')).toBeChecked()
-    expect(screen.getByLabelText('Risikoeier')).toHaveDisplayValue('Kari Nordmann')
+    expect(screen.getByLabelText('Risikoeier')).toHaveValue('E-1')
+    expect(screen.getByLabelText('Risikoeier')).toHaveAccessibleDescription('Kari Nordmann')
     expect(screen.getByLabelText('Sannsynlighet')).toHaveDisplayValue('3 – Moderat')
     expect(screen.getByLabelText('Konsekvens')).toHaveDisplayValue('4 – Verdifull')
     // 3 × 4 er nivå 2 i tabellen, som heter Middels for muligheter.
@@ -71,7 +72,8 @@ describe('RiskForm ved endring', () => {
 
   it('lagrer endringen, beholder opprettet-dato og oppdaterer endret-dato', async () => {
     const { repository, onDone, user } = await setup()
-    await user.selectOptions(screen.getByLabelText('Risikoeier'), 'Ola Åsen')
+    await user.clear(screen.getByLabelText('Risikoeier'))
+    await user.type(screen.getByLabelText('Risikoeier'), 'E-2')
     await user.clear(screen.getByLabelText('Beskrivelse (valgfritt)'))
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
 
@@ -145,5 +147,90 @@ describe('RiskForm og ID (spec 004)', () => {
     expect(onDone).not.toHaveBeenCalled()
     expect(screen.getByLabelText('ID')).toHaveAccessibleDescription('ID-en er allerede i bruk.')
     expect(screen.getByLabelText('ID')).toHaveFocus()
+  })
+})
+
+describe('eier, tema og område med ID (spec 005, K57–K59)', () => {
+  const owner = () => screen.getByLabelText('Risikoeier')
+
+  it('viser navnet når ID-en passer, og lagrer koblingen (akseptkriterium)', async () => {
+    const { repository, onDone, user } = await setup()
+    await user.clear(owner())
+    await user.type(owner(), 'e-2 ')
+    expect(owner()).toHaveAccessibleDescription('Ola Åsen')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(onDone).toHaveBeenCalledTimes(1)
+    expect((await repository.load()).risks[0]?.ownerId).toBe('o2')
+  })
+
+  it('avviser en ID som ingen har, med feil ved feltet og fokus dit (akseptkriterium)', async () => {
+    const { repository, onDone, user } = await setup()
+    await user.clear(owner())
+    await user.type(owner(), 'E-9')
+    await user.clear(screen.getByLabelText('Tema'))
+    await user.type(screen.getByLabelText('Tema'), 'T-9')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(onDone).not.toHaveBeenCalled()
+    expect(owner()).toHaveAccessibleDescription('Ingen risikoeier har ID «E-9».')
+    expect(screen.getByLabelText('Tema')).toHaveAccessibleDescription('Ingen tema har ID «T-9».')
+    expect(owner()).toHaveFocus()
+    expect((await repository.load()).risks).toEqual(seed().risks)
+  })
+
+  it('krever at feltet er fylt ut', async () => {
+    const { onDone, user } = await setup()
+    await user.clear(screen.getByLabelText('Område'))
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+    expect(onDone).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Område')).toHaveAccessibleDescription('Område er påkrevd')
+  })
+
+  it('foreslår på navn og velger med tastaturet uten å lagre (akseptkriterium)', async () => {
+    const { onDone, user } = await setup()
+    await user.clear(owner())
+    await user.type(owner(), 'ola')
+    expect(screen.getByRole('option', { name: 'E-2 – Ola Åsen' })).toBeInTheDocument()
+    await user.keyboard('{ArrowDown}{Enter}')
+
+    expect(owner()).toHaveValue('E-2')
+    expect(onDone).not.toHaveBeenCalled()
+  })
+
+  it('beholder koblingen til en eier uten ID når feltet ikke endres (akseptkriterium, K59)', async () => {
+    const data = seed()
+    data.owners = data.owners.map(({ code: _code, ...rest }) => rest)
+    const { repository, onDone, user } = await setup(data)
+    expect(owner()).toHaveValue('Kari Nordmann (mangler ID)')
+
+    await user.type(screen.getByLabelText('Tittel'), ' (endret)')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(onDone).toHaveBeenCalledTimes(1)
+    const saved = (await repository.load()).risks[0]
+    expect(saved?.ownerId).toBe('o1')
+    expect(saved?.title).toBe('Ny støtteordning (endret)')
+  })
+
+  it('krever en gyldig ID når feltet for en eier uten ID endres', async () => {
+    const data = seed()
+    data.owners = data.owners.map(({ code: _code, ...rest }) => rest)
+    const { onDone, user } = await setup(data)
+    // Den gamle teksten markeres ved fokus og erstattes av det som skrives.
+    await user.type(owner(), 'x')
+    expect(owner()).toHaveValue('x')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(onDone).not.toHaveBeenCalled()
+    expect(owner()).toHaveAccessibleDescription('Ingen risikoeier har ID «x».')
+  })
+
+  it('viser eierens nye ID når den er endret (akseptkriterium)', async () => {
+    const data = seed()
+    data.owners = [{ ...data.owners[0]!, code: 'E-01' }, data.owners[1]!]
+    await setup(data)
+    expect(owner()).toHaveValue('E-01')
+    expect(owner()).toHaveAccessibleDescription('Kari Nordmann')
   })
 })

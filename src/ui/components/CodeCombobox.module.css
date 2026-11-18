@@ -1,0 +1,55 @@
+/* Tekstfelt med forslagsliste for ID (spec 005). */
+.combobox {
+  position: relative;
+}
+
+.listbox {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 10;
+  min-width: 100%;
+  max-width: 28rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.15);
+}
+
+.option {
+  padding: 0.375rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.option:hover {
+  background: var(--color-hover);
+}
+
+/* Markert med piltastene: tydelig både med farge og ramme. */
+.active {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.active:hover {
+  background: var(--color-accent);
+}
+
+.code {
+  font-weight: 600;
+}
+
+/* Navnet til elementet som passer ID-en. */
+.name {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}

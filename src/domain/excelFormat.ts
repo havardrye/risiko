@@ -79,9 +79,10 @@ export const RISK_SHEET: SheetSpec<RiskColumnKey> = {
     { key: 'title', header: 'Tittel', required: true, width: 40 },
     { key: 'description', header: 'Beskrivelse', required: false, width: 60 },
     { key: 'type', header: 'Type', required: true, choices: RISK_TYPE_CHOICES, width: 12 },
-    { key: 'owner', header: 'Eier', required: true, width: 24 },
-    { key: 'theme', header: 'Tema', required: true, width: 24 },
-    { key: 'area', header: 'Område', required: true, width: 24 },
+    // Eier, tema og område angis med ID (spec 005, K60). Navnene står som informasjon bakerst.
+    { key: 'owner', header: 'Eier-ID', required: true, width: 12 },
+    { key: 'theme', header: 'Tema-ID', required: true, width: 12 },
+    { key: 'area', header: 'Område-ID', required: true, width: 12 },
     { key: 'likelihood', header: 'Sannsynlighet', required: true, choices: RATING_CHOICES, width: 14 },
     { key: 'consequence', header: 'Konsekvens', required: true, choices: RATING_CHOICES, width: 14 },
   ],
@@ -91,9 +92,13 @@ export const RISK_SHEET: SheetSpec<RiskColumnKey> = {
  * Kolonner som bare skrives ved eksport, til informasjon (K35). Importen
  * kjenner dem ikke og ignorerer dem derfor, som andre ukjente kolonner (K26).
  */
-export const RISK_INFO_COLUMNS: readonly ColumnSpec<'score' | 'level'>[] = [
+export const RISK_INFO_COLUMNS: readonly ColumnSpec<'score' | 'level' | 'ownerName' | 'themeName' | 'areaName'>[] = [
   { key: 'score', header: 'Score', required: false, width: 8 },
   { key: 'level', header: 'Nivå', required: false, width: 12 },
+  // Navnene til ID-ene i Eier-ID, Tema-ID og Område-ID (spec 005, K61).
+  { key: 'ownerName', header: 'Eier', required: false, width: 24 },
+  { key: 'themeName', header: 'Tema', required: false, width: 24 },
+  { key: 'areaName', header: 'Område', required: false, width: 24 },
 ]
 
 /** Fanen med veiledning først i malen og eksporten (K33). Ignoreres ved import. */

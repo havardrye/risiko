@@ -56,9 +56,9 @@ describe('Excel-formatet (K26)', () => {
       ['Tittel', true],
       ['Beskrivelse', false],
       ['Type', true],
-      ['Eier', true],
-      ['Tema', true],
-      ['Område', true],
+      ['Eier-ID', true],
+      ['Tema-ID', true],
+      ['Område-ID', true],
       ['Sannsynlighet', true],
       ['Konsekvens', true],
     ])
@@ -77,11 +77,10 @@ describe('Excel-formatet (K26)', () => {
     expect(choices(AREA_SHEET, 'Når?')).toBe(HORIZON_CHOICES)
   })
 
-  it('har informasjonskolonnene Score og Nivå utenfor importformatet (K35)', () => {
-    expect(RISK_INFO_COLUMNS.map((column) => column.header)).toEqual(['Score', 'Nivå'])
+  it('har informasjonskolonnene Score, Nivå, Eier, Tema og Område utenfor importformatet (K35, K61)', () => {
+    expect(RISK_INFO_COLUMNS.map((column) => column.header)).toEqual(['Score', 'Nivå', 'Eier', 'Tema', 'Område'])
     const importHeaders = RISK_SHEET.columns.map((column) => column.header)
-    expect(importHeaders).not.toContain('Score')
-    expect(importHeaders).not.toContain('Nivå')
+    for (const header of ['Score', 'Nivå', 'Eier', 'Tema', 'Område']) expect(importHeaders).not.toContain(header)
   })
 })
 

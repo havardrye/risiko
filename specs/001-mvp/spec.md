@@ -1,6 +1,6 @@
 # 001 – MVP: Risikoregister og risikomatrise
 
-Status: GODKJENT 2026-11-18 av produkteier. Alle krav K1–K25 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Endringer skjer som nye krav eller en ny spec.
+Status: GODKJENT 2026-11-18 av produkteier for K1–K25. K56 er lagt til og implementert etter godkjenningen (2026-11-18). Alle krav og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Endringer skjer som nye krav eller en ny spec.
 
 ## Formål
 Gi et lite team (ca. 10 navngitte personer) ett sted å registrere, vurdere og få oversikt over risiko, både trusler og muligheter, gruppert etter eier, tema og område.
@@ -34,6 +34,7 @@ Innlogging, roller/tilgangsstyring, tiltaksoppfølging, restrisiko, endringslogg
 - **K3** Risikoscore og nivå beregnes automatisk. Nivå vises med tekst og farge.
 - **K4** Registeret vises som tabell som kan søkes i (tittel/beskrivelse), filtreres på type, eier, tema, område og nivå, og sorteres på score, tittel og sist endret.
 - **K5** Sletting krever bekreftelse.
+- **K56** I registeret vises score som **[sannsynlighet]x[konsekvens]=[score]**, for eksempel «4x5=20», slik at man ser hvordan scoren er regnet ut. Skjermlesere får det samme som tekst («sannsynlighet 4, konsekvens 5, score 20»). Kolonnen heter fortsatt «Score» og sorteres på scoren. *(Lagt til 2026-11-18.)*
 
 **Akseptkriterier**
 - Gitt at det ikke finnes noe tema, når bruker trykker «Ny risiko», så vises en forklaring med lenke til Risikotemaer, og skjemaet åpnes ikke.
@@ -41,6 +42,7 @@ Innlogging, roller/tilgangsstyring, tiltaksoppfølging, restrisiko, endringslogg
 - Gitt manglende påkrevd felt, når bruker lagrer, så vises feilmelding ved feltet og ingenting lagres.
 - Gitt filter på eier «X», så vises bare risikoer med eier X.
 - Gitt type «mulighet», så viser konsekvensvalget «Verdifull» og «Svært verdifull» for 4 og 5.
+- Gitt en risiko med sannsynlighet 4 og konsekvens 5, så viser score-kolonnen i registeret «4x5=20».
 
 ### B. Risikomatrise
 Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
@@ -105,6 +107,7 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
 
 Import og eksport med Excel er beskrevet i [002-excel-import](../002-excel-import/spec.md) (K26–K35).
 Egne ID-er på risikoer, eiere, temaer og områder er beskrevet i [004-egne-id-er](../004-egne-id-er/spec.md) (K47–K55).
+At risikoer kobles til eier, tema og område med ID, i skjemaet og i Excel, er beskrevet i [005-id-koblinger](../005-id-koblinger/spec.md) (K57–K62).
 
 ## Avklarte beslutninger
 1. **Deling:** MVP bruker lokal lagring per nettleser. Delt backend er en senere spec. Derfor skal lagring ligge bak `Repository`-grensesnittet (se constitution). Eksport/import (K20) er eneste måte å dele på i MVP.

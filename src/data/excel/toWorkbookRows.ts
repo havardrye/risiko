@@ -34,6 +34,11 @@ function sheetRows<K extends string>(
 
 const text = (value: string | undefined): CellValue => value ?? null
 
+/** ID-en til elementet risikoen viser til, eller tom celle når den mangler (spec 005, K60). */
+function codeOf(items: readonly { id: Id; code?: string }[], id: Id): CellValue {
+  return items.find((item) => item.id === id)?.code ?? null
+}
+
 function namesById(items: readonly { id: Id; name: string }[]): Map<Id, string> {
   return new Map(items.map((item) => [item.id, item.name]))
 }
@@ -56,13 +61,16 @@ export function toWorkbookRows(data: AppData): WorkbookRows {
         title: risk.title,
         description: text(risk.description),
         type: RISK_TYPE_LABELS[risk.type],
-        owner: nameOf(owners, risk.ownerId),
-        theme: nameOf(themes, risk.themeId),
-        area: nameOf(areas, risk.areaId),
+        owner: codeOf(data.owners, risk.ownerId),
+        theme: codeOf(data.themes, risk.themeId),
+        area: codeOf(data.areas, risk.areaId),
         likelihood: risk.likelihood,
         consequence: risk.consequence,
         score: score(risk.likelihood, risk.consequence),
         level: levelStyle(risk.type, level(risk.likelihood, risk.consequence)).name,
+        ownerName: nameOf(owners, risk.ownerId),
+        themeName: nameOf(themes, risk.themeId),
+        areaName: nameOf(areas, risk.areaId),
       })),
     ),
     [OWNER_SHEET.name]: sheet(
