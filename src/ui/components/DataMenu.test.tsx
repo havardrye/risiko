@@ -1,9 +1,17 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import { excelTemplate, exportExcel, importExcel } from '../../data/excel/index.ts'
 import type { AppData } from '../../domain/schema.ts'
 import { renderApp } from '../../test/renderApp.tsx'
-import { downloadTextFile } from '../download.ts'
+import { downloadBlob, downloadTextFile } from '../download.ts'
 
-vi.mock('../download.ts', () => ({ downloadTextFile: vi.fn() }))
+vi.mock('../download.ts', () => ({ downloadTextFile: vi.fn(), downloadBlob: vi.fn() }))
+// Excel-lesingen selv er testet med ekte filer i data/excel; her gjelder det menyen.
+vi.mock('../../data/excel/index.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../data/excel/index.ts')>()),
+  importExcel: vi.fn(),
+  exportExcel: vi.fn(),
+  excelTemplate: vi.fn(),
+}))
 
 function current(): AppData {
   return {
@@ -80,12 +88,21 @@ async function openApp() {
 
 beforeEach(() => {
   vi.mocked(downloadTextFile).mockClear()
+  vi.mocked(importExcel).mockReset()
+  vi.mocked(downloadBlob).mockClear()
+  vi.mocked(exportExcel).mockReset()
+  vi.mocked(excelTemplate).mockReset()
 })
 
 describe('eksport (K20)', () => {
   it('laster ned alle data som JSON med dato i filnavnet', async () => {
     const { user } = await openApp()
     await user.click(screen.getByRole('button', { name: 'Eksporter' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Eksporter' })).getByRole('button', {
+        name: 'Sikkerhetskopi (JSON)',
+      }),
+    )
 
     expect(downloadTextFile).toHaveBeenCalledTimes(1)
     const [fileName, text] = vi.mocked(downloadTextFile).mock.calls[0]!
@@ -187,5 +204,194 @@ describe('import (K20, K21)', () => {
     const click = vi.spyOn(fileInput, 'click')
     await user.click(screen.getByRole('button', { name: 'Importer' }))
     expect(click).toHaveBeenCalledTimes(1)
+  })
+})
+
+// --- Excel (spec 002, T32) ---
+
+/** En .xlsx-fil starter med zip-signaturen «PK»; innholdet ellers spiller ingen rolle her. */
+function xlsxFile(name = 'risikoregister.xlsx') {
+  return new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x14])], name, {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+}
+
+/** Datasett med `count` risikoer, alle på samme eier, tema og område. */
+function withRisks(count: number, prefix: string): AppData {
+  const base = current()
+  return {
+    ...base,
+    risks: Array.from({ length: count }, (_, index) => ({
+      ...base.risks[0],
+      id: `${prefix}${index + 1}`,
+      title: `${prefix === 'r' ? 'Gammel' : 'Ny'} risiko ${index + 1}`,
+    })),
+  }
+}
+
+async function openAppWith(data: AppData) {
+  const app = renderApp({ route: '/', data })
+  await screen.findByRole('heading', { level: 1, name: 'Risikoregister' })
+  return { ...app, fileInput: screen.getByTestId('import-file') as HTMLInputElement }
+}
+
+describe('import fra Excel (K26, K28, K31, K32)', () => {
+  it('tar imot både JSON- og Excel-filer i filvelgeren', async () => {
+    const { fileInput } = await openApp()
+    expect(fileInput.accept).toContain('.json')
+    expect(fileInput.accept).toContain('.xlsx')
+  })
+
+  it('erstatter 5 risikoer med de 3 fra filen etter bekreftelse (akseptkriterium)', async () => {
+    vi.mocked(importExcel).mockResolvedValue({ ok: true, data: withRisks(3, 'n') })
+    const { user, fileInput, repository } = await openAppWith(withRisks(5, 'r'))
+    await user.upload(fileInput, xlsxFile())
+
+    const dialog = await screen.findByRole('dialog', { name: 'Erstatte alle data?' })
+    expect(importExcel).toHaveBeenCalledTimes(1)
+    expect(within(dialog).getByText(/«risikoregister.xlsx»/)).toBeInTheDocument()
+    expect(within(dialog).getByText('Erstattes').nextElementSibling).toHaveTextContent('5 risikoer')
+    expect(within(dialog).getByText('Fra filen').nextElementSibling).toHaveTextContent('3 risikoer')
+    expect(within(dialog).getByText(/Eksporter først/)).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Erstatt alle data' }))
+
+    const saved = await repository.load()
+    expect(saved.risks.map((risk) => risk.title)).toEqual(['Ny risiko 1', 'Ny risiko 2', 'Ny risiko 3'])
+    expect(screen.getByRole('status')).toHaveTextContent('Importert: 3 risikoer')
+  })
+
+  it('endrer ingenting når brukeren avbryter', async () => {
+    vi.mocked(importExcel).mockResolvedValue({ ok: true, data: withRisks(3, 'n') })
+    const { user, fileInput, repository } = await openAppWith(withRisks(5, 'r'))
+    const save = vi.spyOn(repository, 'save')
+    await user.upload(fileInput, xlsxFile())
+    await user.click(await screen.findByRole('button', { name: 'Avbryt' }))
+
+    expect(save).not.toHaveBeenCalled()
+    expect((await repository.load()).risks).toHaveLength(5)
+  })
+
+  it('viser feilene med fane, rad og kolonne, og endrer ingenting (K28)', async () => {
+    vi.mocked(importExcel).mockResolvedValue({
+      ok: false,
+      message: 'Filen har 2 feil. Rett dem i Excel og importer på nytt.',
+      details: [
+        'Risikoer, rad 7, Eier: «Ola Nordman» finnes ikke i fanen «Eiere»',
+        'Områder, rad 3, Når?: «2 år» er ikke en lovlig verdi. Bruk «0 - 3 år», «3 - 5 år» eller «5 år +».',
+      ],
+    })
+    const { user, fileInput, repository } = await openApp()
+    const save = vi.spyOn(repository, 'save')
+    await user.upload(fileInput, xlsxFile('mitt register.xlsx'))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Kan ikke importere filen' })
+    expect(within(dialog).getByText(/«mitt register.xlsx» ble ikke importert/)).toBeInTheDocument()
+    expect(within(dialog).getByText('Filen har 2 feil. Rett dem i Excel og importer på nytt.')).toBeInTheDocument()
+    expect(
+      within(dialog)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      'Risikoer, rad 7, Eier: «Ola Nordman» finnes ikke i fanen «Eiere»',
+      'Områder, rad 3, Når?: «2 år» er ikke en lovlig verdi. Bruk «0 - 3 år», «3 - 5 år» eller «5 år +».',
+    ])
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('melder at filen leses og sperrer knappene så lenge', async () => {
+    let finish: (value: Awaited<ReturnType<typeof importExcel>>) => void = () => {}
+    vi.mocked(importExcel).mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    const { user, fileInput } = await openApp()
+    await user.upload(fileInput, xlsxFile())
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Leser Excel-fil …')
+    expect(screen.getByRole('button', { name: 'Importer' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Eksporter' })).toBeDisabled()
+
+    finish({ ok: true, data: imported() })
+    expect(await screen.findByRole('dialog', { name: 'Erstatte alle data?' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Importer' })).toBeEnabled())
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+  })
+
+  it('bruker ikke Excel-lesingen for JSON-filer', async () => {
+    const { user, fileInput } = await openApp()
+    await user.upload(fileInput, jsonFile(imported()))
+    expect(await screen.findByRole('dialog', { name: 'Erstatte alle data?' })).toBeInTheDocument()
+    expect(importExcel).not.toHaveBeenCalled()
+  })
+})
+
+describe('eksportdialogen (K33, K34, K35)', () => {
+  async function openExport() {
+    const app = await openApp()
+    await app.user.click(screen.getByRole('button', { name: 'Eksporter' }))
+    return { ...app, dialog: screen.getByRole('dialog', { name: 'Eksporter' }) }
+  }
+
+  it('har tre valg med forklaring', async () => {
+    const { dialog } = await openExport()
+    const choices = within(dialog).getAllByRole('listitem').map((item) => within(item).getByRole('button'))
+    expect(choices.map((button) => button.textContent)).toEqual([
+      'Excel (for redigering)',
+      'Sikkerhetskopi (JSON)',
+      'Tom Excel-mal',
+    ])
+    expect(choices[0]).toHaveAccessibleDescription('Alle data i en Excel-fil du kan redigere og importere igjen.')
+    expect(choices[2]).toHaveAccessibleDescription('En tom Excel-fil med riktige faner, kolonner og nedtrekkslister.')
+  })
+
+  it('laster ned alle data som Excel med dato i filnavnet (K35)', async () => {
+    const blob = new Blob(['xlsx'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    vi.mocked(exportExcel).mockResolvedValue(blob)
+    const { user, dialog } = await openExport()
+    await user.click(within(dialog).getByRole('button', { name: 'Excel (for redigering)' }))
+
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1))
+    expect(exportExcel).toHaveBeenCalledWith(current())
+    const [fileName, file] = vi.mocked(downloadBlob).mock.calls[0]!
+    expect(fileName).toMatch(/^risikoregister-\d{4}-\d{2}-\d{2}\.xlsx$/)
+    expect(file).toBe(blob)
+    expect(screen.getByRole('status')).toHaveTextContent(`Eksportert til ${fileName}.`)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(downloadTextFile).not.toHaveBeenCalled()
+  })
+
+  it('laster ned den tomme malen (K33)', async () => {
+    const blob = new Blob(['mal'])
+    vi.mocked(excelTemplate).mockResolvedValue(blob)
+    const { user, dialog } = await openExport()
+    await user.click(within(dialog).getByRole('button', { name: 'Tom Excel-mal' }))
+
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledWith('risikoregister-mal.xlsx', blob))
+    expect(screen.getByRole('status')).toHaveTextContent('Malen er lastet ned: risikoregister-mal.xlsx.')
+  })
+
+  it('melder fra når Excel-filen ikke kan lages', async () => {
+    vi.mocked(exportExcel).mockRejectedValue(new Error('offline'))
+    const { user, dialog } = await openExport()
+    await user.click(within(dialog).getByRole('button', { name: 'Excel (for redigering)' }))
+
+    expect(await screen.findByText(/Excel-filen kunne ikke lages/)).toBeInTheDocument()
+    expect(downloadBlob).not.toHaveBeenCalled()
+  })
+
+  it('lukker uten å laste ned noe ved Avbryt', async () => {
+    const { user, dialog } = await openExport()
+    await user.click(within(dialog).getByRole('button', { name: 'Avbryt' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(downloadBlob).not.toHaveBeenCalled()
+    expect(downloadTextFile).not.toHaveBeenCalled()
+  })
+
+  it('lar snarveien i lagringsvarselet eksportere JSON direkte (K34)', async () => {
+    const { user } = await openApp()
+    await user.click(screen.getByRole('button', { name: 'Eksporter nå' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(downloadTextFile).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(downloadTextFile).mock.calls[0]![0]).toMatch(/\.json$/)
   })
 })

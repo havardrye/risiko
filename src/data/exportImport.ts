@@ -30,13 +30,19 @@ export function serializeAppData(data: AppData): string {
   return `${JSON.stringify(data, null, 2)}\n`
 }
 
-/** F.eks. «risikoregister-2026-11-17.json», med brukerens lokale dato. */
-export function exportFileName(date: Date = new Date()): string {
+/**
+ * F.eks. «risikoregister-2026-11-17.json», med brukerens lokale dato.
+ * Excel-eksporten (spec 002, K35) bruker samme navn med `.xlsx`.
+ */
+export function exportFileName(date: Date = new Date(), extension: 'json' | 'xlsx' = 'json'): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
-  return `risikoregister-${year}-${month}-${day}.json`
+  return `risikoregister-${year}-${month}-${day}.${extension}`
 }
+
+/** Filnavnet på den tomme Excel-malen (spec 002, K33). */
+export const TEMPLATE_FILE_NAME = 'risikoregister-mal.xlsx'
 
 /** Tolker og validerer innholdet i en importfil, med samme krav som ved lesing fra lagring. */
 export function parseImportFile(text: string): ParseResult {

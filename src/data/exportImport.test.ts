@@ -51,6 +51,7 @@ describe('exportFileName', () => {
   it('inneholder lokal dato med ledende nuller', () => {
     expect(exportFileName(new Date(2026, 10, 17, 21, 30))).toBe('risikoregister-2026-11-17.json')
     expect(exportFileName(new Date(2027, 0, 5))).toBe('risikoregister-2027-01-05.json')
+    expect(exportFileName(new Date(2027, 0, 5), 'xlsx')).toBe('risikoregister-2027-01-05.xlsx')
   })
 
   it('bruker lokal dato også rett før midnatt', () => {

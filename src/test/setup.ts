@@ -4,7 +4,11 @@ import { afterEach } from 'vitest'
 
 // jsdom mangler showModal() og close() på <dialog>. Denne erstatningen dekker
 // det testene trenger: åpen/lukket tilstand og close-hendelsen.
-if (typeof HTMLDialogElement.prototype.showModal !== 'function') {
+// Tester som kjører i Node (f.eks. Excel-testene) har ingen DOM og hopper over dette.
+if (
+  typeof HTMLDialogElement !== 'undefined' &&
+  typeof HTMLDialogElement.prototype.showModal !== 'function'
+) {
   HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
     this.setAttribute('open', '')
   }

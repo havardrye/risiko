@@ -1,7 +1,14 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import axe from 'axe-core'
+import { importExcel } from '../data/excel/index.ts'
 import type { AppData, Risk } from '../domain/schema.ts'
 import { renderApp } from '../test/renderApp.tsx'
+
+// Excel-lesingen er testet for seg (data/excel); her gjelder det dialogene (spec 002).
+vi.mock('../data/excel/index.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../data/excel/index.ts')>()),
+  importExcel: vi.fn(),
+}))
 
 /**
  * Automatisk tilgjengelighetssjekk med axe-core på alle sidene og de
@@ -85,6 +92,30 @@ describe('tilgjengelighet (axe)', () => {
     const { user } = renderApp({ route: '/eiere', data: seed() })
     await screen.findByRole('heading', { level: 1, name: 'Risikoeiere' })
     await user.click(screen.getByRole('button', { name: 'Slett Kari Nordmann' }))
+    expect(await violations()).toEqual([])
+  })
+
+  it('eksportdialogen har ingen brudd (spec 002)', async () => {
+    const { user } = renderApp({ data: seed() })
+    await screen.findByRole('heading', { level: 1, name: 'Risikoregister' })
+    await user.click(screen.getByRole('button', { name: 'Eksporter' }))
+    expect(within(screen.getByRole('dialog', { name: 'Eksporter' })).getAllByRole('button')).toHaveLength(4)
+    expect(await violations()).toEqual([])
+  })
+
+  it('feildialogen etter Excel-import har ingen brudd (spec 002)', async () => {
+    vi.mocked(importExcel).mockResolvedValue({
+      ok: false,
+      message: 'Filen har 1 feil. Rett den i Excel og importer på nytt.',
+      details: ['Risikoer, rad 7, Eier: «Ola Nordman» finnes ikke i fanen «Eiere»'],
+    })
+    const { user } = renderApp({ data: seed() })
+    await screen.findByRole('heading', { level: 1, name: 'Risikoregister' })
+    await user.upload(
+      screen.getByTestId('import-file'),
+      new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04])], 'register.xlsx'),
+    )
+    await screen.findByRole('dialog', { name: 'Kan ikke importere filen' })
     expect(await violations()).toEqual([])
   })
 })

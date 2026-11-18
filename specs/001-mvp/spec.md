@@ -103,6 +103,8 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
 - **K22** Første gang appen åpnes er den tom, med et tomt register og en veiledning om å opprette eiere, temaer og områder først. Knappen «Ny risiko» vises alltid. Mangler eier, tema eller område, åpner den en forklaring av hva som mangler, med lenker dit, i stedet for skjemaet. *(Endret 2026-11-17: knappen var tidligere skjult til alt fantes, og brukere trodde de ikke kunne legge inn risikoer.)*
 - **K23** Appen viser et synlig, men diskret varsel om at data lagres kun i denne nettleseren, med snarvei til eksport.
 
+Import og eksport med Excel er beskrevet i [002-excel-import](../002-excel-import/spec.md) (K26–K35).
+
 ## Avklarte beslutninger
 1. **Deling:** MVP bruker lokal lagring per nettleser. Delt backend er en senere spec. Derfor skal lagring ligge bak `Repository`-grensesnittet (se constitution). Eksport/import (K20) er eneste måte å dele på i MVP.
 2. **Skala og matrise:** 5 sannsynlighetsnivåer, 5 konsekvensnivåer for trussel og 5 for mulighet, med nivåtabellen i K10. Hentet fra referansebildet.

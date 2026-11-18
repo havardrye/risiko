@@ -1,0 +1,456 @@
+import {
+  interpretHorizon,
+  interpretRating,
+  interpretRiskType,
+  parseSheets,
+  parseWorkbook,
+  type ExcelImportResult,
+} from './parseWorkbook.ts'
+import { formatCellError, type CellValue, type WorkbookRows } from './workbookRows.ts'
+
+/**
+ * Lager en arbeidsbok som i Excel: første rad er overskrifter (rad 1),
+ * datarader får radnummer 2, 3, … i den rekkefølgen de står.
+ */
+function workbook(sheets: Record<string, CellValue[][]>): WorkbookRows {
+  return Object.fromEntries(
+    Object.entries(sheets).map(([name, [headers = [], ...rows]]) => [
+      name,
+      {
+        headers: headers.map((header) => String(header ?? '')),
+        rows: rows.map((cells, index) => ({ rowNumber: index + 2, cells })),
+      },
+    ]),
+  )
+}
+
+const RISK_HEADERS = ['Tittel', 'Beskrivelse', 'Type', 'Eier', 'Tema', 'Område', 'Sannsynlighet', 'Konsekvens']
+
+/** En gyldig fil med én av hvert; `overrides` erstatter hele faner. */
+function validFile(overrides: Record<string, CellValue[][]> = {}): WorkbookRows {
+  return workbook({
+    Veiledning: [['Slik fyller du ut'], ['…']],
+    Risikoer: [
+      RISK_HEADERS,
+      ['Leverandør går konkurs', 'Viktig leverandør', 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 2, 5],
+    ],
+    Eiere: [['Navn', 'E-post'], ['Kari Nordmann', 'kari@example.no']],
+    Temaer: [['Navn', 'Beskrivelse'], ['Leverandør', null]],
+    Områder: [['Navn', 'Når?', 'Beskrivelse'], ['IT', '0 - 3 år', 'Drift og utvikling']],
+    ...overrides,
+  })
+}
+
+/** Feilene som tekst, slik brukeren ser dem. */
+function errorsOf(file: WorkbookRows): string[] {
+  return parseSheets(file).errors.map(formatCellError)
+}
+
+describe('parseSheets – gyldig fil', () => {
+  it('leser alle fire faner med radnummer', () => {
+    const result = parseSheets(validFile())
+    expect(result.errors).toEqual([])
+    expect(result.owners).toEqual([{ rowNumber: 2, value: { name: 'Kari Nordmann', email: 'kari@example.no' } }])
+    expect(result.themes).toEqual([{ rowNumber: 2, value: { name: 'Leverandør' } }])
+    expect(result.areas).toEqual([
+      { rowNumber: 2, value: { name: 'IT', horizon: '0-3', description: 'Drift og utvikling' } },
+    ])
+    expect(result.risks).toEqual([
+      {
+        rowNumber: 2,
+        value: {
+          title: 'Leverandør går konkurs',
+          description: 'Viktig leverandør',
+          type: 'threat',
+          owner: 'Kari Nordmann',
+          theme: 'Leverandør',
+          area: 'IT',
+          likelihood: 2,
+          consequence: 5,
+        },
+      },
+    ])
+  })
+
+  it('godtar kolonner i annen rekkefølge, store bokstaver og mellomrom (K26)', () => {
+    const file = validFile({ ' eiere': [['e-post ', 'NAVN'], ['ola@example.no', 'Ola']] })
+    delete file.Eiere
+    const result = parseSheets(file)
+    expect(result.errors).toEqual([])
+    expect(result.owners[0].value).toEqual({ name: 'Ola', email: 'ola@example.no' })
+  })
+
+  it('ignorerer ukjente faner og kolonner (K26)', () => {
+    const result = parseSheets(
+      validFile({
+        Notater: [['Hva'], ['Husk møtet']],
+        Temaer: [['Navn', 'Ansvarlig avdeling'], ['Leverandør', 'Innkjøp']],
+      }),
+    )
+    expect(result.errors).toEqual([])
+    expect(result.themes[0].value).toEqual({ name: 'Leverandør' })
+  })
+
+  it('trimmer tekst og lar tomme valgfrie felt være tomme', () => {
+    const result = parseSheets(validFile({ Temaer: [['Navn', 'Beskrivelse'], ['  Leverandør  ', '   ']] }))
+    expect(result.themes[0].value).toEqual({ name: 'Leverandør' })
+  })
+
+  it('godtar tall som tekst og tall som tall', () => {
+    const result = parseSheets(
+      validFile({
+        Risikoer: [RISK_HEADERS, ['A', null, 'mulighet', 'Kari Nordmann', 'Leverandør', 'IT', '3', 4]],
+      }),
+    )
+    expect(result.errors).toEqual([])
+    expect(result.risks[0].value).toMatchObject({ type: 'opportunity', likelihood: 3, consequence: 4 })
+  })
+
+  it('godtar en tittel som er et tall', () => {
+    const result = parseSheets(
+      validFile({ Risikoer: [RISK_HEADERS, [2026, null, 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1]] }),
+    )
+    expect(result.risks[0].value.title).toBe('2026')
+  })
+})
+
+describe('parseSheets – tomme rader (K30)', () => {
+  it('hopper over rader der alle kjente kolonner er tomme', () => {
+    const result = parseSheets(
+      validFile({
+        Eiere: [
+          ['Navn', 'E-post', 'Notat'],
+          [null, null, null],
+          ['Kari Nordmann', null, null],
+          ['  ', '', 'bare et notat'],
+          [],
+          ['Ola Nordmann', null, null],
+        ],
+      }),
+    )
+    expect(result.errors).toEqual([])
+    expect(result.owners.map((row) => [row.rowNumber, row.value.name])).toEqual([
+      [3, 'Kari Nordmann'],
+      [6, 'Ola Nordmann'],
+    ])
+  })
+
+  it('godtar en fane uten datarader', () => {
+    const result = parseSheets(validFile({ Temaer: [['Navn', 'Beskrivelse']] }))
+    expect(result.errors).toEqual([])
+    expect(result.themes).toEqual([])
+  })
+})
+
+describe('parseSheets – faner og kolonner (K30)', () => {
+  it('melder en fane som mangler (akseptkriterium)', () => {
+    const file = validFile()
+    delete file.Risikoer
+    expect(errorsOf(file)).toEqual(['Risikoer: Fanen «Risikoer» mangler'])
+  })
+
+  it('melder hver påkrevd kolonne som mangler, én gang, og leser ikke radene', () => {
+    const result = parseSheets(
+      validFile({ Områder: [['Navn', 'Beskrivelse'], ['IT', null], ['Økonomi', null]] }),
+    )
+    expect(result.errors.map(formatCellError)).toEqual(['Områder, Når?: Kolonnen «Når?» mangler'])
+    expect(result.areas).toEqual([])
+  })
+
+  it('godtar at valgfrie kolonner mangler', () => {
+    const result = parseSheets(validFile({ Eiere: [['Navn'], ['Kari Nordmann']] }))
+    expect(result.errors).toEqual([])
+    expect(result.owners[0].value).toEqual({ name: 'Kari Nordmann' })
+  })
+
+  it('melder en kolonne som står to ganger', () => {
+    expect(errorsOf(validFile({ Eiere: [['Navn', 'navn'], ['Kari', 'Ola']] }))).toEqual([
+      'Eiere, Navn: Kolonnen «Navn» står flere ganger',
+    ])
+  })
+})
+
+describe('parseSheets – ugyldige verdier (K28)', () => {
+  it('melder manglende påkrevde felt med fane, rad og kolonne', () => {
+    const errors = errorsOf(
+      validFile({
+        Risikoer: [
+          RISK_HEADERS,
+          ['OK', null, 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1],
+          [null, 'bare beskrivelse', null, null, null, null, null, null],
+        ],
+      }),
+    )
+    expect(errors).toEqual([
+      'Risikoer, rad 3, Tittel: Tittel er påkrevd',
+      'Risikoer, rad 3, Type: Type er påkrevd',
+      'Risikoer, rad 3, Eier: Eier er påkrevd',
+      'Risikoer, rad 3, Tema: Tema er påkrevd',
+      'Risikoer, rad 3, Område: Område er påkrevd',
+      'Risikoer, rad 3, Sannsynlighet: Sannsynlighet er påkrevd',
+      'Risikoer, rad 3, Konsekvens: Konsekvens er påkrevd',
+    ])
+  })
+
+  it('melder ugyldig type', () => {
+    expect(
+      errorsOf(
+        validFile({ Risikoer: [RISK_HEADERS, ['A', null, 'Fare', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1]] }),
+      ),
+    ).toEqual(['Risikoer, rad 2, Type: «Fare» er ikke en lovlig verdi. Bruk «Trussel» eller «Mulighet».'])
+  })
+
+  it('melder «Når?» = «2 år» med de lovlige verdiene (akseptkriterium)', () => {
+    expect(
+      errorsOf(validFile({ Områder: [['Navn', 'Når?'], ['IT', '0 - 3 år'], ['Økonomi', '2 år']] })),
+    ).toEqual([
+      'Områder, rad 3, Når?: «2 år» er ikke en lovlig verdi. Bruk «0 - 3 år», «3 - 5 år» eller «5 år +».',
+    ])
+  })
+
+  it('melder sannsynlighet og konsekvens utenfor 1–5 eller ikke heltall', () => {
+    expect(
+      errorsOf(
+        validFile({
+          Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 6, 2.5]],
+        }),
+      ),
+    ).toEqual([
+      'Risikoer, rad 2, Sannsynlighet: «6» er ikke en lovlig verdi. Bruk et heltall fra 1 til 5.',
+      'Risikoer, rad 2, Konsekvens: «2.5» er ikke en lovlig verdi. Bruk et heltall fra 1 til 5.',
+    ])
+  })
+
+  it('melder ugyldig e-post', () => {
+    expect(errorsOf(validFile({ Eiere: [['Navn', 'E-post'], ['Kari', 'kari(at)example.no']] }))).toEqual([
+      'Eiere, rad 2, E-post: Ugyldig e-postadresse',
+    ])
+  })
+
+  it('melder et celleproblem fra lesingen, f.eks. en formelfeil', () => {
+    expect(
+      errorsOf(validFile({ Temaer: [['Navn'], [{ problem: 'Cellen har en formelfeil (#REF!).' }]] })),
+    ).toEqual(['Temaer, rad 2, Navn: Cellen har en formelfeil (#REF!).'])
+  })
+
+  it('tar ikke med rader som har feil, men leser resten', () => {
+    const result = parseSheets(
+      validFile({ Eiere: [['Navn', 'E-post'], ['Kari', null], ['Ola', 'ugyldig'], ['Per', null]] }),
+    )
+    expect(result.owners.map((row) => row.value.name)).toEqual(['Kari', 'Per'])
+    expect(result.errors).toHaveLength(1)
+  })
+
+  it('samler feil fra flere faner', () => {
+    const file = validFile({ Eiere: [['Navn', 'E-post'], ['Kari', 'ugyldig']] })
+    delete file.Temaer
+    expect(errorsOf(file)).toEqual([
+      'Eiere, rad 2, E-post: Ugyldig e-postadresse',
+      'Temaer: Fanen «Temaer» mangler',
+    ])
+  })
+})
+
+describe('tolking av verdier', () => {
+  it('type uten hensyn til store og små bokstaver', () => {
+    expect(interpretRiskType('TRUSSEL')).toEqual({ ok: true, value: 'threat' })
+    expect(interpretRiskType('Mulighet')).toEqual({ ok: true, value: 'opportunity' })
+  })
+
+  it('«Når?» uten hensyn til mellomrom', () => {
+    expect(interpretHorizon('0-3 år')).toEqual({ ok: true, value: '0-3' })
+    expect(interpretHorizon('3 - 5 ÅR')).toEqual({ ok: true, value: '3-5' })
+    expect(interpretHorizon('5år+')).toEqual({ ok: true, value: '5+' })
+    expect(interpretHorizon('0-3').ok).toBe(false)
+  })
+
+  it('tall 1–5 som tall eller tekst', () => {
+    expect(interpretRating(1)).toEqual({ ok: true, value: 1 })
+    expect(interpretRating('5')).toEqual({ ok: true, value: 5 })
+    for (const value of [0, 6, 2.5, '3,0', 'tre', '-1']) {
+      expect(interpretRating(value).ok).toBe(false)
+    }
+  })
+})
+
+// --- T28: helheten ---
+
+const NOW = new Date('2026-11-18T12:00:00.000Z')
+
+/** Fast tidspunkt og forutsigbare id-er (id1, id2, …). */
+function parse(file: WorkbookRows): ExcelImportResult {
+  let counter = 0
+  return parseWorkbook(file, { now: NOW, newId: () => `id${++counter}` })
+}
+
+function failures(file: WorkbookRows): string[] {
+  const result = parse(file)
+  return result.ok ? [] : result.errors.map(formatCellError)
+}
+
+describe('parseWorkbook – gyldig fil (K26)', () => {
+  it('gir riktig datasett for 3 eiere, 2 temaer, 2 områder og 10 risikoer (akseptkriterium)', () => {
+    const owners = ['Kari Nordmann', 'Ola Nordmann', 'Per Hansen']
+    const themes = ['Leverandør', 'Informasjonssikkerhet']
+    const areas = ['IT', 'Økonomi']
+    const riskRows: CellValue[][] = Array.from({ length: 10 }, (_, index) => [
+      `Risiko ${index + 1}`,
+      null,
+      index % 2 === 0 ? 'Trussel' : 'Mulighet',
+      owners[index % 3],
+      themes[index % 2],
+      areas[(index + 1) % 2],
+      (index % 5) + 1,
+      5 - (index % 5),
+    ])
+    const result = parse(
+      validFile({
+        Risikoer: [RISK_HEADERS, ...riskRows],
+        Eiere: [['Navn'], ...owners.map((name) => [name])],
+        Temaer: [['Navn'], ...themes.map((name) => [name])],
+        Områder: [['Navn', 'Når?'], ['IT', '0 - 3 år'], ['Økonomi', '5 år +']],
+      }),
+    )
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const { data } = result
+    expect([data.owners.length, data.themes.length, data.areas.length, data.risks.length]).toEqual([
+      3, 2, 2, 10,
+    ])
+    expect(data.schemaVersion).toBe(2)
+
+    const nameOf = (list: readonly { id: string; name: string }[], id: string) =>
+      list.find((item) => item.id === id)?.name
+    data.risks.forEach((risk, index) => {
+      expect(risk.title).toBe(`Risiko ${index + 1}`)
+      expect(nameOf(data.owners, risk.ownerId)).toBe(owners[index % 3])
+      expect(nameOf(data.themes, risk.themeId)).toBe(themes[index % 2])
+      expect(nameOf(data.areas, risk.areaId)).toBe(areas[(index + 1) % 2])
+      expect(risk.likelihood).toBe((index % 5) + 1)
+      expect(risk.type).toBe(index % 2 === 0 ? 'threat' : 'opportunity')
+    })
+    expect(data.areas.map((area) => area.horizon)).toEqual(['0-3', '5+'])
+  })
+
+  it('gir nye id-er og setter datoene til importtidspunktet', () => {
+    const result = parse(validFile())
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const { owners, themes, areas, risks } = result.data
+    const ids = [...owners, ...themes, ...areas, ...risks].map((item) => item.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(risks[0]).toMatchObject({
+      createdAt: '2026-11-18T12:00:00.000Z',
+      updatedAt: '2026-11-18T12:00:00.000Z',
+    })
+  })
+
+  it('finner eier, tema og område uten hensyn til store bokstaver og mellomrom', () => {
+    const result = parse(
+      validFile({
+        Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', '  kari   NORDMANN ', 'leverandør', 'it', 1, 1]],
+      }),
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.risks[0].ownerId).toBe(result.data.owners[0].id)
+  })
+
+  it('lager id-er med crypto.randomUUID som standard', () => {
+    const result = parseWorkbook(validFile())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.risks[0].id).toMatch(/^[0-9a-f-]{36}$/)
+  })
+
+  it('godtar en fil uten risikoer', () => {
+    const result = parse(validFile({ Risikoer: [RISK_HEADERS] }))
+    expect(result.ok && result.data.risks).toEqual([])
+  })
+})
+
+describe('parseWorkbook – helheten (K28, K29)', () => {
+  it('melder en eier som ikke finnes (akseptkriterium)', () => {
+    expect(
+      failures(
+        validFile({
+          Risikoer: [
+            RISK_HEADERS,
+            ['A', null, 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1],
+            ['B', null, 'Trussel', 'Ola Nordman', 'Leverandør', 'IT', 1, 1],
+          ],
+        }),
+      ),
+    ).toEqual(['Risikoer, rad 3, Eier: «Ola Nordman» finnes ikke i fanen «Eiere»'])
+  })
+
+  it('melder tema og område som ikke finnes', () => {
+    expect(
+      failures(
+        validFile({ Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', 'Kari Nordmann', 'Lønn', 'HR', 1, 1]] }),
+      ),
+    ).toEqual([
+      'Risikoer, rad 2, Tema: «Lønn» finnes ikke i fanen «Temaer»',
+      'Risikoer, rad 2, Område: «HR» finnes ikke i fanen «Områder»',
+    ])
+  })
+
+  it('melder like navn i Temaer på begge radene (akseptkriterium)', () => {
+    expect(failures(validFile({ Temaer: [['Navn'], ['Leverandør'], ['Lønn'], ['leverandør ']] }))).toEqual([
+      'Temaer, rad 2, Navn: «Leverandør» står også på rad 4. Navn må være unike.',
+      'Temaer, rad 4, Navn: «leverandør» står også på rad 2. Navn må være unike.',
+    ])
+  })
+
+  it('nevner alle de andre radene når et navn står mer enn to ganger', () => {
+    const errors = failures(
+      validFile({ Eiere: [['Navn'], ['Kari Nordmann'], ['Kari Nordmann'], ['Kari Nordmann']] }),
+    )
+    expect(errors[0]).toBe(
+      'Eiere, rad 2, Navn: «Kari Nordmann» står også på rad 3 og 4. Navn må være unike.',
+    )
+    expect(errors).toHaveLength(3)
+  })
+
+  it('gir ikke følgefeil når raden med navnet selv har feil', () => {
+    expect(failures(validFile({ Eiere: [['Navn', 'E-post'], ['Kari Nordmann', 'ugyldig']] }))).toEqual([
+      'Eiere, rad 2, E-post: Ugyldig e-postadresse',
+    ])
+  })
+
+  it('gir ikke følgefeil når fanen mangler eller mangler kolonner', () => {
+    const file = validFile({ Områder: [['Navn'], ['IT']] })
+    delete file.Eiere
+    expect(failures(file)).toEqual([
+      'Eiere: Fanen «Eiere» mangler',
+      'Områder, Når?: Kolonnen «Når?» mangler',
+    ])
+  })
+
+  it('sorterer feilene etter fane og rad', () => {
+    const errors = failures(
+      validFile({
+        Risikoer: [
+          RISK_HEADERS,
+          ['A', null, 'Trussel', 'Ukjent', 'Leverandør', 'IT', 1, 1],
+          ['B', null, 'Fare', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1],
+        ],
+        Eiere: [['Navn', 'E-post'], ['Kari Nordmann', null], ['Per', 'ugyldig']],
+      }),
+    )
+    expect(errors).toEqual([
+      'Risikoer, rad 2, Eier: «Ukjent» finnes ikke i fanen «Eiere»',
+      'Risikoer, rad 3, Type: «Fare» er ikke en lovlig verdi. Bruk «Trussel» eller «Mulighet».',
+      'Eiere, rad 3, E-post: Ugyldig e-postadresse',
+    ])
+  })
+
+  it('gir ok: false og ingen data når én eneste rad har feil (K28)', () => {
+    const result = parse(
+      validFile({ Temaer: [['Navn', 'Beskrivelse'], ['Leverandør', null], [null, 'mangler navn']] }),
+    )
+    expect(result).toEqual({
+      ok: false,
+      errors: [{ sheet: 'Temaer', row: 3, column: 'Navn', message: 'Navn er påkrevd' }],
+    })
+  })
+})
