@@ -13,14 +13,14 @@ function seed(): AppData {
     updatedAt: '2026-11-17T10:00:00.000Z',
   }
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [
       { id: 'o1', name: 'Ola Åsen' },
       { id: 'o2', name: 'Kari Nordmann', email: 'kari@example.com' },
       { id: 'o3', name: 'Anne Berg' },
     ],
     themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT' }],
+    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
     risks: [
       { ...risk, id: 'r1', title: 'Leverandør går konkurs', ownerId: 'o2' },
       { ...risk, id: 'r2', title: 'Datainnbrudd', ownerId: 'o2' },

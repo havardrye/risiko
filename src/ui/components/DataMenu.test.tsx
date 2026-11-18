@@ -7,10 +7,10 @@ vi.mock('../download.ts', () => ({ downloadTextFile: vi.fn() }))
 
 function current(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT' }],
+    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
     risks: [
       {
         id: 'r1',
@@ -30,13 +30,13 @@ function current(): AppData {
 
 function imported(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [
       { id: 'x1', name: 'Per Hansen' },
       { id: 'x2', name: 'Ola Åsen' },
     ],
     themes: [{ id: 'y1', name: 'Sikkerhet' }],
-    areas: [{ id: 'z1', name: 'Økonomi' }],
+    areas: [{ id: 'z1', name: 'Økonomi', horizon: '0-3' }],
     risks: [
       {
         id: 'q1',

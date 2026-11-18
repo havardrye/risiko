@@ -8,15 +8,15 @@ import { renderApp } from '../../test/renderApp.tsx'
 
 function seed(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [
       { id: 't1', name: 'Leverandør', description: 'Avhengighet av eksterne' },
       { id: 't2', name: 'Sikkerhet' },
     ],
     areas: [
-      { id: 'a1', name: 'IT' },
-      { id: 'a2', name: 'Økonomi', description: 'Regnskap og lønn' },
+      { id: 'a1', name: 'IT', horizon: '0-3' },
+      { id: 'a2', name: 'Økonomi', description: 'Regnskap og lønn', horizon: '3-5' },
     ],
     risks: [
       {
@@ -35,15 +35,26 @@ function seed(): AppData {
   }
 }
 
+/** Celletekstene i hver rad, uten overskriftsraden og kolonnen med knapper. */
 function rows() {
   return screen
     .getAllByRole('row')
     .slice(1)
     .map((row) =>
       Array.from(row.children)
-        .slice(0, 3)
+        .slice(0, -1)
         .map((cell) => cell.textContent),
     )
+}
+
+type User = ReturnType<typeof renderApp>['user']
+
+/** Fyller ut påkrevde felt utover navn. Bare områder har det («Når?», K25). */
+const FILL_REQUIRED = {
+  themes: async () => {},
+  areas: async (user: User, dialog: HTMLElement) => {
+    await user.selectOptions(within(dialog).getByLabelText('Når?'), '0 - 3 år')
+  },
 }
 
 const PAGES = [
@@ -73,8 +84,8 @@ const PAGES = [
     list: 'areas',
     empty: /Ingen risikoområder er registrert ennå/,
     rows: [
-      ['IT', '–', '1'],
-      ['Økonomi', 'Regnskap og lønn', '0'],
+      ['IT', '0 - 3 år', '–', '1'],
+      ['Økonomi', '3 - 5 år', 'Regnskap og lønn', '0'],
     ],
     inUse: 'IT',
     unused: 'Økonomi',
@@ -106,6 +117,7 @@ describe.each(PAGES)('$title', (page) => {
     const dialog = screen.getByRole('dialog', { name: page.create })
     await user.type(within(dialog).getByLabelText('Navn'), 'Personal')
     await user.type(within(dialog).getByLabelText('Beskrivelse (valgfritt)'), 'Bemanning{Enter}og kompetanse')
+    await FILL_REQUIRED[page.list](user, dialog)
     await user.click(within(dialog).getByRole('button', { name: 'Lagre' }))
 
     expect(await screen.findByRole('rowheader', { name: 'Personal' })).toBeInTheDocument()
@@ -118,6 +130,7 @@ describe.each(PAGES)('$title', (page) => {
     const { user } = await open(seed())
     await user.click(screen.getByRole('button', { name: page.create }))
     await user.type(screen.getByLabelText('Navn'), page.unused.toUpperCase())
+    await FILL_REQUIRED[page.list](user, screen.getByRole('dialog'))
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
 
     expect(screen.getByLabelText('Navn')).toHaveAccessibleDescription('Navnet er allerede i bruk.')
@@ -150,5 +163,71 @@ describe.each(PAGES)('$title', (page) => {
     const dialog = screen.getByRole('dialog', { name: page.blockedTitle })
     expect(within(dialog).getByRole('listitem')).toHaveTextContent('Leverandør går konkurs')
     expect((await repository.load())[page.list]).toHaveLength(2)
+  })
+})
+
+describe('«Når?» på områder (K25)', () => {
+  async function open(data: AppData = seed()) {
+    const app = renderApp({ route: '/omrader', data })
+    await screen.findByRole('heading', { level: 1, name: 'Risikoområder' })
+    return app
+  }
+
+  it('har nedtrekksmeny med de tre valgene', async () => {
+    const { user } = await open()
+    await user.click(screen.getByRole('button', { name: 'Nytt område' }))
+    const select = screen.getByLabelText('Når?')
+
+    expect(select.tagName).toBe('SELECT')
+    expect(select).toBeRequired()
+    expect(
+      within(select)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Velg når', '0 - 3 år', '3 - 5 år', '5 år +'])
+    expect(select).toHaveValue('')
+  })
+
+  it('krever valg: viser feil ved feltet og lagrer ingenting (akseptkriterium)', async () => {
+    const { user, repository } = await open()
+    await user.click(screen.getByRole('button', { name: 'Nytt område' }))
+    await user.type(screen.getByLabelText('Navn'), 'Personal')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(screen.getByLabelText('Når?')).toHaveAccessibleDescription('«Når?» er påkrevd')
+    expect(screen.getByLabelText('Når?')).toHaveFocus()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect((await repository.load()).areas).toHaveLength(2)
+  })
+
+  it('lagrer valgt verdi og viser den i listen (akseptkriterium)', async () => {
+    const { user, repository } = await open()
+    await user.click(screen.getByRole('button', { name: 'Nytt område' }))
+    await user.type(screen.getByLabelText('Navn'), 'Personal')
+    await user.selectOptions(screen.getByLabelText('Når?'), '5 år +')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(await screen.findByRole('rowheader', { name: 'Personal' })).toBeInTheDocument()
+    expect(rows()).toContainEqual(['Personal', '5 år +', '–', '0'])
+    expect((await repository.load()).areas).toContainEqual(
+      expect.objectContaining({ name: 'Personal', horizon: '5+' }),
+    )
+  })
+
+  it('fyller ut valgt verdi ved endring, og lagrer ny verdi', async () => {
+    const { user, repository } = await open()
+    await user.click(screen.getByRole('button', { name: 'Endre Økonomi' }))
+    expect(screen.getByLabelText('Når?')).toHaveDisplayValue('3 - 5 år')
+
+    await user.selectOptions(screen.getByLabelText('Når?'), '0 - 3 år')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(rows()).toContainEqual(['Økonomi', '0 - 3 år', 'Regnskap og lønn', '0'])
+    expect((await repository.load()).areas.find((a) => a.id === 'a2')?.horizon).toBe('0-3')
+  })
+
+  it('viser kolonnen «Når?» bare for områder', async () => {
+    await open()
+    expect(screen.getByRole('columnheader', { name: 'Når?' })).toBeInTheDocument()
   })
 })

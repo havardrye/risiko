@@ -113,7 +113,7 @@ describe('referanseregistre', () => {
 
   it('godtar tema og område med og uten beskrivelse', () => {
     expect(themeSchema.safeParse({ id: 't1', name: 'Leverandør' }).success).toBe(true)
-    expect(areaSchema.safeParse({ id: 'a1', name: 'IT', description: 'Drift' }).success).toBe(true)
+    expect(areaSchema.safeParse({ id: 'a1', name: 'IT', description: 'Drift', horizon: '0-3' }).success).toBe(true)
   })
 
   it('avviser tema og område uten navn', () => {
@@ -129,16 +129,16 @@ describe('appDataSchema', () => {
 
   it('godtar et fullt datasett', () => {
     const data = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       owners: [{ id: 'o1', name: 'Kari' }],
       themes: [{ id: 't1', name: 'Leverandør' }],
-      areas: [{ id: 'a1', name: 'IT' }],
+      areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
       risks: [validRisk],
     }
     expect(appDataSchema.safeParse(data).success).toBe(true)
   })
 
-  it.each([0, 2, '1', undefined])('avviser schemaVersion %s', (version) => {
+  it.each([0, 1, 3, '2', undefined])('avviser schemaVersion %s', (version) => {
     expect(appDataSchema.safeParse({ ...emptyAppData(), schemaVersion: version }).success).toBe(false)
   })
 

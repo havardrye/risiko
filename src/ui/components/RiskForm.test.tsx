@@ -14,13 +14,13 @@ const NOW = '2026-11-17T20:00:00.000Z'
 
 function seed(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [
       { id: 'o1', name: 'Kari Nordmann' },
       { id: 'o2', name: 'Ola Åsen' },
     ],
     themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT' }],
+    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
     risks: [
       {
         id: 'r1',

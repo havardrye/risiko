@@ -1,5 +1,6 @@
 import { findIntegrityErrors } from '../domain/rules.ts'
 import { appDataSchema, SCHEMA_VERSION, type AppData } from '../domain/schema.ts'
+import { migrate, SUPPORTED_VERSIONS } from './migrations.ts'
 
 export type ParseResult =
   | { ok: true; data: AppData }
@@ -32,15 +33,17 @@ export function parseAppData(text: string): ParseResult {
   }
 
   const version = (json as { schemaVersion?: unknown }).schemaVersion
-  if (version !== SCHEMA_VERSION) {
+  if (version === undefined) {
+    return fail('Innholdet mangler versjonsnummer og er ikke et risikoregister.')
+  }
+  if (typeof version !== 'number' || !SUPPORTED_VERSIONS.includes(version)) {
     return fail(
-      version === undefined
-        ? 'Innholdet mangler versjonsnummer og er ikke et risikoregister.'
-        : `Innholdet har versjon ${String(version)}, men appen støtter bare versjon ${SCHEMA_VERSION}.`,
+      `Innholdet har versjon ${String(version)}, men appen støtter bare versjon 1–${SCHEMA_VERSION}.`,
     )
   }
 
-  const parsed = appDataSchema.safeParse(json)
+  // Eldre versjoner løftes til gjeldende før validering (se data/migrations.ts).
+  const parsed = appDataSchema.safeParse(migrate(json as Record<string, unknown>))
   if (!parsed.success) {
     return fail(
       'Innholdet har ugyldige felt.',

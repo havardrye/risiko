@@ -29,15 +29,15 @@ const owners = [
 
 function validData(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners,
     themes: [
       { id: 't1', name: 'Leverandør' },
       { id: 't2', name: 'Sikkerhet' },
     ],
     areas: [
-      { id: 'a1', name: 'IT' },
-      { id: 'a2', name: 'Økonomi' },
+      { id: 'a1', name: 'IT', horizon: '0-3' },
+      { id: 'a2', name: 'Økonomi', horizon: '0-3' },
     ],
     risks: [
       risk({ id: 'r1', ownerId: 'o1', themeId: 't1', areaId: 'a1' }),
@@ -114,7 +114,7 @@ describe('findIntegrityErrors', () => {
   it('godtar gyldige og tomme data', () => {
     expect(findIntegrityErrors(validData())).toEqual([])
     expect(
-      findIntegrityErrors({ schemaVersion: 1, owners: [], themes: [], areas: [], risks: [] }),
+      findIntegrityErrors({ schemaVersion: 2, owners: [], themes: [], areas: [], risks: [] }),
     ).toEqual([])
   })
 
@@ -148,7 +148,7 @@ describe('findIntegrityErrors', () => {
 
   it('tillater samme navn i ulike registre', () => {
     const data = validData()
-    data.areas = [...data.areas, { id: 'a3', name: 'Sikkerhet' }]
+    data.areas = [...data.areas, { id: 'a3', name: 'Sikkerhet', horizon: '0-3' }]
     expect(findIntegrityErrors(data)).toEqual([])
   })
 

@@ -3,13 +3,13 @@ import { exportFileName, parseImportFile, serializeAppData, summarize } from './
 
 function sampleData(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [
       { id: 'o1', name: 'Kari Nordmann', email: 'kari@example.com' },
       { id: 'o2', name: 'Ola Åsen' },
     ],
     themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'Økonomi', description: 'Regnskap og lønn' }],
+    areas: [{ id: 'a1', name: 'Økonomi', description: 'Regnskap og lønn', horizon: '0-3' }],
     risks: [
       {
         id: 'r1',
@@ -72,7 +72,7 @@ describe('eksport og import', () => {
 
   it('eksporterer lesbar JSON med versjonsnummer', () => {
     const text = serializeAppData(emptyAppData())
-    expect(text).toContain('\n  "schemaVersion": 1,')
+    expect(text).toContain('\n  "schemaVersion": 2,')
     expect(text.endsWith('\n')).toBe(true)
   })
 
@@ -106,8 +106,8 @@ describe('parseImportFile avviser', () => {
   })
 
   it('fil fra en nyere versjon', () => {
-    const text = JSON.stringify({ ...sampleData(), schemaVersion: 2 })
-    expect(rejected(text).message).toBe('Innholdet har versjon 2, men appen støtter bare versjon 1.')
+    const text = JSON.stringify({ ...sampleData(), schemaVersion: 3 })
+    expect(rejected(text).message).toBe('Innholdet har versjon 3, men appen støtter bare versjon 1–2.')
   })
 
   it('fil med ugyldig felt, og sier hvor feilen er', () => {

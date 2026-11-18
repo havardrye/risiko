@@ -10,7 +10,7 @@ const CONFIG: ReferenceRegisterConfig = {
   definite: 'temaet',
   createLabel: 'Nytt tema',
   emptyText: 'Ingen risikotemaer er registrert ennå. Opprett det første med «Nytt tema».',
-  extra: { key: 'description', label: 'Beskrivelse', input: 'textarea' },
+  fields: [{ key: 'description', label: 'Beskrivelse', input: 'textarea' }],
 }
 
 export function ThemesPage() {

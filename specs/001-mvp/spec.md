@@ -1,6 +1,6 @@
 # 001 – MVP: Risikoregister og risikomatrise
 
-Status: IMPLEMENTERT – alle krav K1–K23 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier, inkludert svar på det åpne spørsmålet om nivånavn for muligheter.
+Status: IMPLEMENTERT – alle krav K1–K25 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier, inkludert svar på det åpne spørsmålet om nivånavn for muligheter.
 
 ## Formål
 Gi et lite team (ca. 10 navngitte personer) ett sted å registrere, vurdere og få oversikt over risiko, både trusler og muligheter, gruppert etter eier, tema og område.
@@ -36,6 +36,7 @@ Innlogging, roller/tilgangsstyring, tiltaksoppfølging, restrisiko, endringslogg
 - **K5** Sletting krever bekreftelse.
 
 **Akseptkriterier**
+- Gitt at det ikke finnes noe tema, når bruker trykker «Ny risiko», så vises en forklaring med lenke til Risikotemaer, og skjemaet åpnes ikke.
 - Gitt gyldig skjema, når bruker lagrer, så vises risikoen i tabellen med riktig score og nivå.
 - Gitt manglende påkrevd felt, når bruker lagrer, så vises feilmelding ved feltet og ingenting lagres.
 - Gitt filter på eier «X», så vises bare risikoer med eier X.
@@ -65,12 +66,15 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
   | 3 | Høy (rød) | Stor (mørk blå) |
 
   Tabellen er lest av referansebildet. Den følger score-grensene 1–4 / 5–12 / 15–25 med ett unntak: sannsynlighet 1 og konsekvens 4 (score 4) er nivå 2.
+- **K24** Når pekeren holdes over en celle, eller cellen har tastaturfokus, vises et verktøytips med type, nivå, sannsynlighet og konsekvens (tall og tekst), og titlene på inntil tre risikoer i cellen («og N til» for resten, «Ingen risikoer» for tomme celler). Tipset skal kunne holdes pekeren over uten å forsvinne, skjules med Escape, og holde seg innenfor matrisen (WCAG 1.4.13). *(Lagt til 2026-11-17.)*
 
 **Akseptkriterier**
 - Gitt en trussel med sannsynlighet 4 og konsekvens 5, så telles den i trusselhalvdelen i celle (4,5), og cellen er rød.
 - Gitt en mulighet med sannsynlighet 4 og konsekvens 5, så telles den i mulighetshalvdelen i cellen lengst til venstre på rad 4, og cellen er mørk blå.
 - Gitt en trussel med sannsynlighet 1 og konsekvens 4, så er nivået Middels.
 - Gitt valgt tema-filter, så endres antallene i matrisen tilsvarende.
+- Gitt to trusler i celle (4,5), når pekeren holdes over cellen, så viser tipset «Trussel · nivå Høy», skalatekstene og begge titlene.
+- Gitt et synlig verktøytips, når bruker trykker Escape, så skjules det til pekeren eller fokus flyttes til en celle.
 
 ### C. Register over risikoeiere
 - **K11** Bruker kan opprette, endre og slette risikoeiere (navn påkrevd, e-post valgfritt).
@@ -83,14 +87,20 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
 - **K16** Et tema i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per tema.
 
 ### E. Register over risikoområder
-- **K17** Opprette, endre og slette områder (navn påkrevd, unikt, beskrivelse valgfritt).
+- **K17** Opprette, endre og slette områder (navn påkrevd, unikt, beskrivelse valgfritt, «Når?» påkrevd).
+- **K25** Hvert område har feltet **«Når?»**, som velges fra en nedtrekksmeny med verdiene «0 - 3 år», «3 - 5 år» og «5 år +». Feltet er påkrevd ved opprettelse og endring, og vises som egen kolonne i områdelisten. Områder som finnes fra før, og områder i eldre eksportfiler, får «0 - 3 år» automatisk (se avklart beslutning 7). *(Lagt til 2026-11-18.)*
+
+**Akseptkriterier (K25)**
+- Gitt et nytt område uten valgt «Når?», når bruker lagrer, så vises feilmelding ved feltet og ingenting lagres.
+- Gitt et område med «Når?» = «3 - 5 år», så vises «3 - 5 år» i områdelisten.
+- Gitt lagrede data eller en eksportfil fra før feltet fantes, når appen leser dem, så får alle områder «0 - 3 år», og ingenting avvises.
 - **K18** Et område i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per område.
 
 ### F. Lagring og deling
 - **K19** Data lagres lokalt i nettleseren og overlever omstart.
 - **K20** Bruker kan eksportere alle data til én JSON-fil og importere den igjen. Import validerer filen og viser feil uten å overskrive eksisterende data.
 - **K21** Ved import velger bruker å erstatte alle data (fletting er utenfor MVP).
-- **K22** Første gang appen åpnes er den tom, med et tomt register og en veiledning om å opprette eiere, temaer og områder først.
+- **K22** Første gang appen åpnes er den tom, med et tomt register og en veiledning om å opprette eiere, temaer og områder først. Knappen «Ny risiko» vises alltid. Mangler eier, tema eller område, åpner den en forklaring av hva som mangler, med lenker dit, i stedet for skjemaet. *(Endret 2026-11-17: knappen var tidligere skjult til alt fantes, og brukere trodde de ikke kunne legge inn risikoer.)*
 - **K23** Appen viser et synlig, men diskret varsel om at data lagres kun i denne nettleseren, med snarvei til eksport.
 
 ## Avklarte beslutninger
@@ -100,6 +110,7 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
 4. **Eiere:** Eierlisten er en egen liste, uavhengig av hvem som bruker appen. *(Antatt standard, ikke eksplisitt bekreftet.)*
 5. **Status:** Ikke i MVP.
 6. **Unntaket i nivåtabellen:** Sannsynlighet 1 med konsekvens 4 er nivå 2, slik referansebildet viser. Bekreftet tilsiktet.
+7. **Eksisterende områder og «Når?» (K25):** Områder som mangler feltet, i nettleseren eller i eksportfiler fra før endringen, settes til «0 - 3 år». Bekreftet 2026-11-18. Verdien er en standard, ikke en vurdering, så brukerne bør gå gjennom områdene etterpå.
 
 ## Åpne spørsmål
 1. **[AVKLARES]** Nivånavnene for muligheter («Liten», «Middels», «Stor») er mitt forslag; referansebildet har bare farger. Har dere egne navn?

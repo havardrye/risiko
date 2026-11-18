@@ -69,6 +69,20 @@ Gjøres i rekkefølge, én om gangen. Hver oppgave er ferdig når «Ferdig når�
 - [x] **T20 Gjennomgang.** Gå gjennom K1–K23 og alle akseptkriterier mot kjørende app. Sjekk tastaturnavigasjon, fokus i dialoger, kontrast og skjermlesernavn i matrisen. Oppdater spec-status til GODKJENT eller noter avvik.
   *Ferdig når:* hvert krav er krysset av i en sjekkliste nederst i denne filen.
 
+## Fase 10 – Endringer etter brukertest
+
+- [x] **T21 «Ny risiko» vises alltid.** Knappen skjules ikke lenger når eier, tema eller område mangler; den åpner en forklaring med lenker i stedet for skjemaet. (K22)
+  *Ferdig når:* tester dekker forklaringen og at skjemaet ikke åpnes. Publisert som `b7468e7`.
+- [x] **T22 Verktøytips i matrisen.** Hover og tastaturfokus viser type, nivå, skala og inntil tre risikotitler; Escape skjuler; plassering innenfor matrisen. (K24)
+  *Ferdig når:* tester dekker innhold, plassering og Escape, og hover er sjekket i nettleser. Publisert som `0d16847`.
+
+## Fase 11 – «Når?» på områder (K25)
+
+- [x] **T23 Datamodell og migrering.** `horizon` på område i skjemaet, tekster i `domain/scales.ts`, `schemaVersion` 2, migrering 1 → 2 i `data/migrations.ts` brukt av `parseAppData`. (K17, K25)
+  *Ferdig når:* tester dekker gyldige og ugyldige verdier, migrering av lagrede data og av en eksportfil i versjon 1, og at versjon 3 avvises.
+- [x] **T24 Områderegisteret.** Registerkomponenten støtter flere ekstra felt og nedtrekksmeny; områder får «Når?» som påkrevd felt og egen kolonne. (K25)
+  *Ferdig når:* tester dekker akseptkriteriene for K25, og visning med gamle data er sjekket i nettleser.
+
 ## Sporbarhet
 
 | Krav | Oppgaver |
@@ -84,8 +98,10 @@ Gjøres i rekkefølge, én om gangen. Hver oppgave er ferdig når «Ferdig når�
 | K15–K18 | T02, T06, T12 |
 | K19 | T07 |
 | K20–K21 | T08, T18 |
-| K22 | T13, T19 |
+| K22 | T13, T19, T21 |
 | K23 | T19 |
+| K24 | T22 |
+| K25 | T23, T24 |
 
 ## Sjekkliste fra gjennomgangen (T20, 2026-11-17)
 
@@ -114,11 +130,14 @@ Hvert krav er sjekket mot automatiske tester og i kjørende app (Chrome, utvikli
 | K19 Lokal lagring som overlever omstart | [x] | `localStorageRepository.test`; sideoppdatering i nettleser |
 | K20 Eksport og import med validering uten overskriving | [x] | `exportImport.test`, `DataMenu.test`; prøvd i nettleser |
 | K21 Import erstatter alle data etter bekreftelse | [x] | `DataMenu.test` |
-| K22 Tom app med veiledning til eier, tema og område | [x] | `FirstUse.test` (hele løpet til første risiko) |
+| K22 Tom app med veiledning til eier, tema og område; «Ny risiko» alltid synlig | [x] | `FirstUse.test` (hele løpet til første risiko), `RisksPage.test` (forklaring når noe mangler) |
 | K23 Varsel om lokal lagring med snarvei til eksport | [x] | `FirstUse.test`; vises på alle sider |
+| K24 Verktøytips på matrisecellene | [x] | `RiskMatrixTooltip.test`; hover og Escape sjekket i nettleser (T22) |
+| K25 «Når?» på områder, med migrering av eldre data | [x] | `ThemesAndAreasPages.test`, `migrations.test`, `dataStore.test`; gamle data og nytt område sjekket i nettleser (T23–T24) |
 
 ### Akseptkriterier
 
+- [x] Uten tema viser «Ny risiko» en forklaring med lenke til Risikotemaer, og skjemaet åpnes ikke. *(T21)*
 - [x] Gyldig skjema lagres og vises i tabellen med riktig score og nivå.
 - [x] Manglende påkrevd felt gir feil ved feltet, og ingenting lagres.
 - [x] Filter på eier X viser bare risikoer med eier X.
@@ -127,6 +146,11 @@ Hvert krav er sjekket mot automatiske tester og i kjørende app (Chrome, utvikli
 - [x] Mulighet (4,5) telles lengst til venstre på rad 4, og cellen er mørk blå.
 - [x] Trussel (1,4) har nivå Middels.
 - [x] Tema-filter endrer antallene i matrisen.
+- [x] Hover over celle (4,5) med to trusler viser «Trussel · nivå Høy», skalatekstene og begge titlene. *(T22)*
+- [x] Escape skjuler et synlig verktøytips til pekeren eller fokus går til en celle. *(T22)*
+- [x] Nytt område uten valgt «Når?» gir feil ved feltet, og ingenting lagres. *(T24)*
+- [x] Område med «3 - 5 år» viser «3 - 5 år» i områdelisten. *(T24)*
+- [x] Lagrede data og eksportfiler fra før feltet fantes leses uten avvisning, og alle områder får «0 - 3 år». *(T23)*
 
 ### Universell utforming
 

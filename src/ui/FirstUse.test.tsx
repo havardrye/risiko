@@ -15,10 +15,10 @@ function heading(name: string) {
 
 function withOneOfEach(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT' }],
+    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
     risks: [],
   }
 }
@@ -80,7 +80,9 @@ describe('første gangs bruk (K22)', () => {
     // 4. Første område, deretter registeret.
     await heading('Risikoområder')
     await user.click(screen.getByRole('button', { name: 'Nytt område' }))
-    await user.type(screen.getByLabelText('Navn'), 'IT{Enter}')
+    await user.type(screen.getByLabelText('Navn'), 'IT')
+    await user.selectOptions(screen.getByLabelText('Når?'), '0 - 3 år')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
     await screen.findByRole('rowheader', { name: 'IT' })
     const toRegister = screen.getByText('Neste steg:').parentElement!
     expect(toRegister).toHaveTextContent('registrer den første risikoen i Risikoregister.')

@@ -23,7 +23,8 @@ type Id = string;                      // crypto.randomUUID()
 
 interface Owner { id: Id; name: string; email?: string }
 interface Theme { id: Id; name: string; description?: string }
-interface Area  { id: Id; name: string; description?: string }
+type Horizon = '0-3' | '3-5' | '5+'   // «Når?»: «0 - 3 år», «3 - 5 år», «5 år +» (K25)
+interface Area  { id: Id; name: string; description?: string; horizon: Horizon }
 
 type Rating = 1 | 2 | 3 | 4 | 5;
 type RiskType = 'threat' | 'opportunity';
@@ -44,7 +45,7 @@ interface Risk {
 }
 
 interface AppData {
-  schemaVersion: 1;
+  schemaVersion: 2;                    // 2 fra K25; versjon 1 migreres ved lesing
   owners: Owner[]; themes: Theme[]; areas: Area[]; risks: Risk[];
 }
 ```
@@ -109,9 +110,9 @@ Felles:
 - Toppmeny med de fem sidene, eksport/import-knapper og varselet om lokal lagring (K20, K23).
 - Filtrene (type, eier, tema, område, nivå, søk) ligger i URL-ens søkeparametre og deles av register og matrise, så et filter følger med når man bytter side (K9), og en filtrert visning kan bokmerkes.
 - De tre referanseregistrene har samme oppførsel og bygges fra én generisk komponent.
-- Tomtilstand med veiledning når det ikke finnes eiere/temaer/områder (K22). Risikoskjemaet er sperret til det finnes minst én av hver.
+- Tomtilstand med veiledning når det ikke finnes eiere/temaer/områder (K22). Risikoskjemaet er sperret til det finnes minst én av hver, men «Ny risiko» vises alltid og åpner da en forklaring med lenker i stedet for skjemaet.
 
-## Matrisen (K6–K8)
+## Matrisen (K6–K8, K24)
 
 - Utforming følger `referanse/risikomatrise.png`: 5 rader (sannsynlighet, 5 øverst) og 10 kolonner. Mulighet til venstre med konsekvens 5→1, trussel til høyre med konsekvens 1→5. Radoverskrifter og kolonneoverskrifter viser tall og skalatekst; under kolonnene står «Mulighet», «Trussel» og «Konsekvens».
 - Bygges som én HTML-tabell med rad- og kolonneoverskrifter og to kolonnegrupper (`colgroup`), slik at skjermlesere får riktig kontekst. En tydelig skillelinje markerer midten.
@@ -119,6 +120,7 @@ Felles:
 - Farger: trussel grønn/gul/rød, mulighet lys blå/blå/mørk blå, tatt fra referansen og justert slik at teksten i cellen har kontrast ≥ 4,5:1 (mørk tekst på lyse celler, hvit tekst på rød og mørk blå). Nivå står også som tekst i celledetaljene og i registeret.
 - På smale skjermer ruller matrisen horisontalt i sin egen beholder; siden selv ruller ikke sidelengs.
 - Celleklikk åpner et panel med risikoene i cellen, lenket til registeret.
+- Verktøytips (K24) ligger i hver celle og vises med CSS ved `:hover` og `:focus-within`. Det er `aria-hidden`, fordi cellens tilgjengelige navn allerede har samme innhold. Plassering: under cellen i rad 5–4, ellers over; inntil kanten i de to ytterste kolonnene på hver side, så det ikke klippes av rullebeholderen. Escape fanges på dokumentnivå (ved hover har ikke matrisen fokus) og skjuler tipsene til pekeren eller fokus går til en celle.
 
 ## Eksport og import (K20, K21)
 
@@ -148,3 +150,15 @@ Felles:
 
 - **Tap av data:** `localStorage` slettes hvis bruker tømmer nettleserdata. Avbøtes av K23 og eksport, men ikke løst før backend.
 - **Skjemaendringer:** `schemaVersion` ligger i formatet fra start, slik at senere versjoner kan migrere gamle data og gamle eksportfiler.
+
+## Migrering (K25)
+
+- `data/migrations.ts` løfter rådata til gjeldende versjon før validering. Den brukes av `parseAppData`, altså både ved lesing fra lagring og ved import, slik at de har samme regler.
+- Versjon 1 → 2: hvert område uten `horizon` får `'0-3'` (avklart beslutning 7). Ingenting annet endres.
+- Migrerte data lagres som versjon 2 først ved neste endring; frem til da ligger versjon 1 urørt i lagringen. Eksport skriver alltid gjeldende versjon.
+- Versjoner nyere enn appen kjenner avvises som før.
+
+## Referanseregistrene og ekstra felt (K25)
+
+- Registerkomponenten tar en liste med ekstra felt i stedet for ett. Hvert felt er e-post, fritekst eller nedtrekksmeny med faste valg. Områder har beskrivelse og «Når?»; eiere og temaer er uendret.
+- Nedtrekksmenyen starter på «Velg …», slik at et nytt område ikke får en verdi uten at brukeren har valgt den.

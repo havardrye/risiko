@@ -8,7 +8,8 @@ import { z } from 'zod'
  * legger til det systemet setter selv (id og datoer).
  */
 
-export const SCHEMA_VERSION = 1
+/** Versjon 2 la til «Når?» på områder (K25). Eldre data migreres i data/migrations.ts. */
+export const SCHEMA_VERSION = 2
 
 const idSchema = z.string().min(1)
 
@@ -31,9 +32,13 @@ export const themeInputSchema = z.object({
 })
 export const themeSchema = themeInputSchema.extend({ id: idSchema })
 
+/** «Når?» på et område (K25). Visningstekstene ligger i domain/scales.ts. */
+export const horizonSchema = z.enum(['0-3', '3-5', '5+'], '«Når?» er påkrevd')
+
 export const areaInputSchema = z.object({
   name: requiredText('Navn er påkrevd'),
   description: optionalText,
+  horizon: horizonSchema,
 })
 export const areaSchema = areaInputSchema.extend({ id: idSchema })
 
@@ -78,6 +83,7 @@ export const appDataSchema = z.object({
 export type Id = z.infer<typeof idSchema>
 export type Rating = z.infer<typeof ratingSchema>
 export type RiskType = z.infer<typeof riskTypeSchema>
+export type Horizon = z.infer<typeof horizonSchema>
 
 export type OwnerInput = z.infer<typeof ownerInputSchema>
 export type Owner = z.infer<typeof ownerSchema>

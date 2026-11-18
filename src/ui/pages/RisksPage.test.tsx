@@ -4,13 +4,13 @@ import { renderApp } from '../../test/renderApp.tsx'
 
 function references(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [
       { id: 'o1', name: 'Ola Åsen' },
       { id: 'o2', name: 'Kari Nordmann' },
     ],
     themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT' }],
+    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
     risks: [],
   }
 }

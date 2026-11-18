@@ -9,7 +9,7 @@ const CONFIG: ReferenceRegisterConfig = {
   definite: 'risikoeieren',
   createLabel: 'Ny risikoeier',
   emptyText: 'Ingen risikoeiere er registrert ennå. Opprett den første med «Ny risikoeier».',
-  extra: { key: 'email', label: 'E-post', input: 'email' },
+  fields: [{ key: 'email', label: 'E-post', input: 'email' }],
 }
 
 export function OwnersPage() {

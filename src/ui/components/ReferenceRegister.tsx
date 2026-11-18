@@ -19,11 +19,16 @@ import { FormField } from './FormField.tsx'
 import { useFormErrors } from './useFormErrors.ts'
 import styles from './ReferenceRegister.module.css'
 
-/** Det andre feltet i registeret, ved siden av navn. */
-interface ExtraField {
-  key: 'email' | 'description'
+/** Et felt i registeret i tillegg til navn. */
+export interface ExtraField {
+  key: 'email' | 'description' | 'horizon'
   label: string
-  input: 'email' | 'textarea'
+  input: 'email' | 'textarea' | 'select'
+  required?: boolean
+  /** Valgene i nedtrekksmenyen, i rekkefølge. Bare for `input: 'select'`. */
+  options?: readonly { value: string; label: string }[]
+  /** Første valg i nedtrekksmenyen, f.eks. «Velg når». Bare for `input: 'select'`. */
+  placeholder?: string
 }
 
 export interface ReferenceRegisterConfig {
@@ -40,7 +45,8 @@ export interface ReferenceRegisterConfig {
   createLabel: string
   /** Vises når registeret er tomt. */
   emptyText: string
-  extra: ExtraField
+  /** Feltene etter navn, i den rekkefølgen de vises i tabell og skjema. */
+  fields: readonly ExtraField[]
 }
 
 interface ReferenceItem {
@@ -48,6 +54,14 @@ interface ReferenceItem {
   name: string
   email?: string | undefined
   description?: string | undefined
+  horizon?: string | undefined
+}
+
+/** Teksten som vises i tabellen. For nedtrekksmenyer er det valgets tekst, ikke verdien. */
+function displayValue(field: ExtraField, item: ReferenceItem): string | undefined {
+  const value = item[field.key]
+  if (value === undefined || value === '') return undefined
+  return field.options?.find((option) => option.value === value)?.label ?? value
 }
 
 type DialogState =
@@ -66,8 +80,8 @@ const ROUTE_FOR_KIND: Record<ReferenceKind, { path: string }> = {
 }
 
 /**
- * Register over eiere, temaer eller områder (spec K11–K18). De tre
- * registrene oppfører seg likt og skiller seg bare i tekster og ett felt.
+ * Register over eiere, temaer eller områder (spec K11–K18, K25). De tre
+ * registrene oppfører seg likt og skiller seg bare i tekster og feltene etter navn.
  */
 export function ReferenceRegister({ config }: { config: ReferenceRegisterConfig }) {
   usePageTitle(config.title)
@@ -147,7 +161,11 @@ export function ReferenceRegister({ config }: { config: ReferenceRegisterConfig 
             <thead>
               <tr>
                 <th scope="col">Navn</th>
-                <th scope="col">{config.extra.label}</th>
+                {config.fields.map((field) => (
+                  <th key={field.key} scope="col">
+                    {field.label}
+                  </th>
+                ))}
                 <th scope="col" className="numeric">
                   Risikoer
                 </th>
@@ -160,7 +178,12 @@ export function ReferenceRegister({ config }: { config: ReferenceRegisterConfig 
               {items.map((item) => (
                 <tr key={item.id}>
                   <th scope="row">{item.name}</th>
-                  <td>{item[config.extra.key] ?? <span className="muted">–</span>}</td>
+                  {config.fields.map((field) => (
+                    // Korte faste verdier, som «0 - 3 år», skal ikke brytes over to linjer.
+                    <td key={field.key} className={field.input === 'select' ? 'nowrap' : undefined}>
+                      {displayValue(field, item) ?? <span className="muted">–</span>}
+                    </td>
+                  ))}
                   <td className="numeric">{counts.get(item.id) ?? 0}</td>
                   <td className="actions">
                     <button
@@ -254,25 +277,26 @@ function ReferenceForm({ config, item, onDone }: ReferenceFormProps) {
   const store = useDataStore()
   const formRef = useRef<HTMLFormElement>(null)
   const { errors, showErrors, clearError } = useFormErrors(formRef)
-  const [name, setName] = useState(item?.name ?? '')
-  const [extra, setExtra] = useState(item?.[config.extra.key] ?? '')
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = { name: item?.name ?? '' }
+    for (const field of config.fields) initial[field.key] = item?.[field.key] ?? ''
+    return initial
+  })
   const [formError, setFormError] = useState<string>()
   const [saving, setSaving] = useState(false)
 
-  const changeName = (event: { target: { value: string } }) => {
-    setName(event.target.value)
-    clearError('name')
-  }
-  const changeExtra = (event: { target: { value: string } }) => {
-    setExtra(event.target.value)
-    clearError(config.extra.key)
+  /** Endringshåndterer for et felt. Fjerner samtidig feilmeldingen ved feltet. */
+  const change = (key: string) => (event: { target: { value: string } }) => {
+    const { value } = event.target
+    setValues((current) => ({ ...current, [key]: value }))
+    clearError(key)
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setSaving(true)
     setFormError(undefined)
-    const input = { name, [config.extra.key]: extra } as never
+    const input = values as never
     try {
       if (item) await store.updateReference(config.kind, item.id, input)
       else await store.createReference(config.kind, input)
@@ -295,33 +319,49 @@ function ReferenceForm({ config, item, onDone }: ReferenceFormProps) {
           <input
             {...control}
             type="text"
-            value={name}
+            value={values.name}
             autoComplete="off"
-            onChange={changeName}
+            onChange={change('name')}
           />
         )}
       </FormField>
 
-      <FormField label={config.extra.label} error={errors[config.extra.key]}>
-        {(control) =>
-          config.extra.input === 'textarea' ? (
-            <textarea
-              {...control}
-              rows={3}
-              value={extra}
-              onChange={changeExtra}
-            />
-          ) : (
-            <input
-              {...control}
-              type="email"
-              value={extra}
-              autoComplete="off"
-              onChange={changeExtra}
-            />
-          )
-        }
-      </FormField>
+      {config.fields.map((field) => (
+        <FormField
+          key={field.key}
+          label={field.label}
+          required={field.required ?? false}
+          error={errors[field.key]}
+        >
+          {(control) =>
+            field.input === 'select' ? (
+              <select {...control} value={values[field.key]} onChange={change(field.key)}>
+                <option value="">{field.placeholder ?? 'Velg'}</option>
+                {field.options?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            ) : field.input === 'textarea' ? (
+              <textarea
+                {...control}
+                rows={3}
+                value={values[field.key]}
+                onChange={change(field.key)}
+              />
+            ) : (
+              <input
+                {...control}
+                type="email"
+                value={values[field.key]}
+                autoComplete="off"
+                onChange={change(field.key)}
+              />
+            )
+          }
+        </FormField>
+      ))}
 
       {formError && <p role="alert">{formError}</p>}
 

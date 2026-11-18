@@ -8,13 +8,13 @@ const T2 = '2026-11-18T12:30:00.000Z'
 
 function seed(): AppData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     owners: [
       { id: 'o1', name: 'Kari Nordmann' },
       { id: 'o2', name: 'Ola Åsen' },
     ],
     themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT' }],
+    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
     risks: [
       {
         id: 'r1',
@@ -224,11 +224,11 @@ describe('eiere, temaer og områder', () => {
       email: 'per@example.com',
     })
     const theme = await store.createReference('theme', { name: 'Sikkerhet', description: 'IKT' })
-    const area = await store.createReference('area', { name: 'Økonomi' })
+    const area = await store.createReference('area', { name: 'Økonomi', horizon: '3-5' })
 
     expect(owner).toEqual({ id: 'ny-1', name: 'Per Hansen', email: 'per@example.com' })
     expect(theme).toEqual({ id: 'ny-2', name: 'Sikkerhet', description: 'IKT' })
-    expect(area).toEqual({ id: 'ny-3', name: 'Økonomi' })
+    expect(area).toEqual({ id: 'ny-3', name: 'Økonomi', horizon: '3-5' })
     expect(data().owners).toHaveLength(3)
     expect(data().themes).toHaveLength(2)
     expect(data().areas).toHaveLength(2)
@@ -240,10 +240,25 @@ describe('eiere, temaer og områder', () => {
       id: 'ny-1',
       name: 'Per',
     })
-    expect(await store.createReference('area', { name: 'HR', description: ' ' })).toEqual({
+    expect(
+      await store.createReference('area', { name: 'HR', description: ' ', horizon: '5+' }),
+    ).toEqual({
       id: 'ny-2',
       name: 'HR',
+      horizon: '5+',
     })
+  })
+
+  it('krever «Når?» på område (K25)', async () => {
+    const { store, save } = await setup()
+    const missing = await rejection(store.createReference('area', { name: 'HR' } as never))
+    expect(missing.fieldErrors).toEqual({ horizon: '«Når?» er påkrevd' })
+
+    const invalid = await rejection(
+      store.createReference('area', { name: 'HR', horizon: '10+' } as never),
+    )
+    expect(invalid.fieldErrors).toEqual({ horizon: '«Når?» er påkrevd' })
+    expect(save).not.toHaveBeenCalled()
   })
 
   it('avviser manglende navn og ugyldig e-post uten å lagre', async () => {
@@ -269,7 +284,9 @@ describe('eiere, temaer og områder', () => {
 
   it('tillater samme navn i ulike registre', async () => {
     const { store } = await setup()
-    await expect(store.createReference('area', { name: 'Leverandør' })).resolves.toMatchObject({
+    await expect(
+      store.createReference('area', { name: 'Leverandør', horizon: '0-3' }),
+    ).resolves.toMatchObject({
       name: 'Leverandør',
     })
   })
