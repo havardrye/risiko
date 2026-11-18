@@ -1,6 +1,6 @@
 # 002 – Import og eksport med Excel
 
-Status: IMPLEMENTERT – alle krav K26–K35 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier.
+Status: GODKJENT 2026-11-18 av produkteier. Alle krav K26–K35 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Endringer skjer som nye krav eller en ny spec.
 Bygger på: [001-mvp](../001-mvp/spec.md). Kravnumrene fortsetter derfra (K26–).
 
 ## Formål

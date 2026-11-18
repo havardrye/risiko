@@ -1,6 +1,6 @@
 # 001 – MVP: Teknisk plan
 
-Status: UTKAST. Beskriver *hvordan* kravene i `spec.md` løses. K-numre viser til spec-en.
+Status: GJENNOMFØRT (spec godkjent 2026-11-18). Beskriver *hvordan* kravene i `spec.md` løses. K-numre viser til spec-en.
 
 ## Teknologivalg
 

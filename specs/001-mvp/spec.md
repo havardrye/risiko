@@ -1,6 +1,6 @@
 # 001 – MVP: Risikoregister og risikomatrise
 
-Status: IMPLEMENTERT – alle krav K1–K25 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier, inkludert svar på det åpne spørsmålet om nivånavn for muligheter.
+Status: GODKJENT 2026-11-18 av produkteier. Alle krav K1–K25 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Endringer skjer som nye krav eller en ny spec.
 
 ## Formål
 Gi et lite team (ca. 10 navngitte personer) ett sted å registrere, vurdere og få oversikt over risiko, både trusler og muligheter, gruppert etter eier, tema og område.
@@ -113,6 +113,7 @@ Import og eksport med Excel er beskrevet i [002-excel-import](../002-excel-impor
 5. **Status:** Ikke i MVP.
 6. **Unntaket i nivåtabellen:** Sannsynlighet 1 med konsekvens 4 er nivå 2, slik referansebildet viser. Bekreftet tilsiktet.
 7. **Eksisterende områder og «Når?» (K25):** Områder som mangler feltet, i nettleseren eller i eksportfiler fra før endringen, settes til «0 - 3 år». Bekreftet 2026-11-18. Verdien er en standard, ikke en vurdering, så brukerne bør gå gjennom områdene etterpå.
+8. **Nivånavn for muligheter (K10):** «Liten», «Middels» og «Stor», som i tabellen i K10. Bekreftet 2026-11-18.
 
 ## Åpne spørsmål
-1. **[AVKLARES]** Nivånavnene for muligheter («Liten», «Middels», «Stor») er mitt forslag; referansebildet har bare farger. Har dere egne navn?
+Ingen. *(Nivånavnene for muligheter er avklart, se beslutning 8.)*

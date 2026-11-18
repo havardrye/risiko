@@ -163,7 +163,7 @@ Hvert krav er sjekket mot automatiske tester og i kjørende app (Chrome, utvikli
 
 ### Avvik og valg som bør bekreftes
 
-1. **Nivånavn for muligheter** («Liten», «Middels», «Stor») er fortsatt et forslag (åpent spørsmål i spec-en). Navnene ligger i `domain/scales.ts`.
+1. **Nivånavn for muligheter** («Liten», «Middels», «Stor»): bekreftet 2026-11-18 (beslutning 8 i spec-en). Navnene ligger i `domain/scales.ts`.
 2. **Type er forhåndsvalgt som «Trussel»** i nytt risikoskjema. Spec-en sier ikke om typen skal ha standardverdi.
 3. **Rødfargen** er `#d50000` i stedet for ren rød fra referansebildet, for at hvit tekst skal få nok kontrast.
 4. **Søk** krever at hele søketeksten finnes sammenhengende; ord matches ikke hver for seg.
