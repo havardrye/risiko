@@ -1,6 +1,6 @@
 # 004 – Egne ID-er
 
-Status: IMPLEMENTERT – alle krav K47–K55 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier.
+Status: GODKJENT 2026-11-18 av produkteier. Alle krav K47–K55 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Endringer skjer som nye krav eller en ny spec.
 Bygger på: [001-mvp](../001-mvp/spec.md) og [002-excel-import](../002-excel-import/spec.md). Kravnumrene fortsetter etter utkastet til 003 (K36–K46), altså fra K47.
 
 ## Formål
