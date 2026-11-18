@@ -123,18 +123,25 @@ describe('readXlsx (K26, K27)', { timeout: 20_000 }, () => {
     const workbook = await newWorkbook()
     workbook.addWorksheet('Veiledning').addRow(['Les meg'])
     const risks = workbook.addWorksheet('Risikoer')
-    risks.addRow(['Tittel', 'Type', 'Eier', 'Tema', 'Område', 'Sannsynlighet', 'Konsekvens'])
-    risks.addRow(['Leverandør går konkurs', 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 2, 5])
-    workbook.addWorksheet('Eiere').addRow(['Navn'])
-    workbook.getWorksheet('Eiere')?.addRow([{ text: 'Kari Nordmann', hyperlink: 'mailto:kari@example.no' }])
-    workbook.addWorksheet('Temaer').addRows([['Navn'], ['Leverandør']])
-    workbook.addWorksheet('Områder').addRows([['Navn', 'Når?'], ['IT', '0 - 3 år']])
+    risks.addRow(['ID', 'Tittel', 'Type', 'Eier', 'Tema', 'Område', 'Sannsynlighet', 'Konsekvens'])
+    risks.addRow(['R-1', 'Leverandør går konkurs', 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 2, 5])
+    workbook.addWorksheet('Eiere').addRow(['ID', 'Navn'])
+    workbook.getWorksheet('Eiere')?.addRow(['E-1', { text: 'Kari Nordmann', hyperlink: 'mailto:kari@example.no' }])
+    workbook.addWorksheet('Temaer').addRows([['ID', 'Navn'], ['T-1', 'Leverandør']])
+    workbook.addWorksheet('Områder').addRows([['ID', 'Navn', 'Når?'], [7, 'IT', '0 - 3 år']])
 
     const result = parseWorkbook(await read(workbook))
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.data.risks).toHaveLength(1)
-      expect(result.data.risks[0]).toMatchObject({ title: 'Leverandør går konkurs', likelihood: 2, consequence: 5 })
+      expect(result.data.risks[0]).toMatchObject({
+        code: 'R-1',
+        title: 'Leverandør går konkurs',
+        likelihood: 2,
+        consequence: 5,
+      })
+      // En ID som er et tall i Excel, leses som tekst.
+      expect(result.data.areas[0]?.code).toBe('7')
     }
   })
 })

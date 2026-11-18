@@ -14,7 +14,7 @@ const NOW = '2026-11-17T20:00:00.000Z'
 
 function seed(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
       { id: 'o1', name: 'Kari Nordmann' },
       { id: 'o2', name: 'Ola Åsen' },
@@ -24,6 +24,7 @@ function seed(): AppData {
     risks: [
       {
         id: 'r1',
+        code: 'M-1',
         title: 'Ny støtteordning',
         description: 'Ekstern finansiering',
         type: 'opportunity',
@@ -39,15 +40,15 @@ function seed(): AppData {
   }
 }
 
-async function setup() {
-  const repository = new MemoryRepository(seed())
+async function setup(data: AppData = seed()) {
+  const repository = new MemoryRepository(data)
   const store = new DataStore(repository, { now: () => new Date(NOW) })
   await store.start()
   const onDone = vi.fn()
   const user = userEvent.setup()
   render(
     <DataProvider store={store}>
-      <RiskForm risk={seed().risks[0]} onDone={onDone} />
+      <RiskForm risk={data.risks[0]} onDone={onDone} />
     </DataProvider>,
   )
   return { repository, onDone, user }
@@ -56,6 +57,7 @@ async function setup() {
 describe('RiskForm ved endring', () => {
   it('fyller ut feltene med verdiene til risikoen', async () => {
     await setup()
+    expect(screen.getByLabelText('ID')).toHaveValue('M-1')
     expect(screen.getByLabelText('Tittel')).toHaveValue('Ny støtteordning')
     expect(screen.getByLabelText('Beskrivelse (valgfritt)')).toHaveValue('Ekstern finansiering')
     expect(screen.getByLabelText('Mulighet')).toBeChecked()
@@ -78,6 +80,7 @@ describe('RiskForm ved endring', () => {
     expect(risks).toHaveLength(1)
     expect(risks[0]).toEqual({
       id: 'r1',
+      code: 'M-1',
       title: 'Ny støtteordning',
       type: 'opportunity',
       ownerId: 'o2',
@@ -97,5 +100,50 @@ describe('RiskForm ved endring', () => {
 
     expect(onDone).toHaveBeenCalledTimes(1)
     expect((await repository.load()).risks).toEqual(seed().risks)
+  })
+})
+
+describe('RiskForm og ID (spec 004)', () => {
+  /** Som før spec 004: risikoen har ingen ID (beslutning 5). */
+  function withoutCode(): AppData {
+    const data = seed()
+    const { code: _code, ...legacy } = data.risks[0]!
+    return { ...data, risks: [legacy] }
+  }
+
+  it('har ID som første felt, med plass til høyst 20 tegn', async () => {
+    await setup()
+    const fields = screen.getAllByRole('textbox')
+    expect(fields[0]).toBe(screen.getByLabelText('ID'))
+    expect(screen.getByLabelText('ID')).toHaveAttribute('maxLength', '20')
+  })
+
+  it('krever ID når en gammel risiko uten ID endres (akseptkriterium)', async () => {
+    const { repository, onDone, user } = await setup(withoutCode())
+    expect(screen.getByLabelText('ID')).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(onDone).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('ID')).toHaveAccessibleDescription('ID er påkrevd')
+    expect(screen.getByLabelText('ID')).toHaveFocus()
+    expect((await repository.load()).risks).toEqual(withoutCode().risks)
+
+    await user.type(screen.getByLabelText('ID'), 'M-1')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+    expect(onDone).toHaveBeenCalledTimes(1)
+    expect((await repository.load()).risks[0]?.code).toBe('M-1')
+  })
+
+  it('viser feil ved feltet når ID-en er i bruk (akseptkriterium)', async () => {
+    const data = seed()
+    data.risks.push({ ...data.risks[0]!, id: 'r2', code: 'R-007', title: 'Annen' })
+    const { onDone, user } = await setup(data)
+    await user.clear(screen.getByLabelText('ID'))
+    await user.type(screen.getByLabelText('ID'), 'r-007 ')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+
+    expect(onDone).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('ID')).toHaveAccessibleDescription('ID-en er allerede i bruk.')
+    expect(screen.getByLabelText('ID')).toHaveFocus()
   })
 })

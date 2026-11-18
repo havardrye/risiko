@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { Repository } from '../data/repository.ts'
-import { isNameTaken, risksReferencing, type ReferenceKind } from '../domain/rules.ts'
+import { isCodeTaken, isNameTaken, risksReferencing, type ReferenceKind } from '../domain/rules.ts'
 import {
   areaInputSchema,
   ownerInputSchema,
@@ -32,6 +32,9 @@ export type DataState =
 /** Felt i et skjema → feilmelding på norsk. */
 export type FieldErrors = Record<string, string>
 
+/** ID-en finnes allerede på et annet element av samme type (spec 004, K50). */
+const CODE_TAKEN = 'ID-en er allerede i bruk.'
+
 /** En endring ble avvist. Ingenting er lagret. */
 export class DataError extends Error {
   /** Feil knyttet til enkeltfelt, til visning ved feltet. */
@@ -60,7 +63,7 @@ type ReferenceList = 'owners' | 'themes' | 'areas'
 
 interface ReferenceConfig {
   list: ReferenceList
-  schema: z.ZodType<{ name: string }>
+  schema: z.ZodType<{ code: string; name: string }>
   /** Bestemt form, til feilmeldinger: «Risikoeieren finnes ikke lenger.» */
   definite: string
   riskField: 'ownerId' | 'themeId' | 'areaId'
@@ -169,7 +172,7 @@ export class DataStore {
     const existing = data.risks.find((risk) => risk.id === id)
     if (!existing) throw new DataError('Risikoen finnes ikke lenger.')
 
-    const fields = this.validateRisk(data, input)
+    const fields = this.validateRisk(data, input, id)
     const updated: Risk = {
       ...fields,
       id,
@@ -257,10 +260,14 @@ export class DataStore {
     return this.state.data
   }
 
-  private validateRisk(data: AppData, input: RiskInput): RiskInput {
+  /** `excludeId` er risikoen som endres, slik at den kan beholde sin egen ID. */
+  private validateRisk(data: AppData, input: RiskInput, excludeId?: Id): RiskInput {
     const fields = validate(riskInputSchema, input)
 
     const fieldErrors: FieldErrors = {}
+    if (fields.code !== undefined && isCodeTaken(data.risks, fields.code, excludeId)) {
+      fieldErrors.code = CODE_TAKEN
+    }
     for (const kind of REFERENCE_KINDS) {
       const config = REFERENCES[kind]
       if (!data[config.list].some((item) => item.id === fields[config.riskField])) {
@@ -281,10 +288,15 @@ export class DataStore {
   ): ReferenceTypes[K]['input'] {
     const config = REFERENCES[kind]
     const fields = validate(config.schema, input)
+    const fieldErrors: FieldErrors = {}
+    if (fields.code !== undefined && isCodeTaken(data[config.list], fields.code, excludeId)) {
+      fieldErrors.code = CODE_TAKEN
+    }
     if (isNameTaken(data[config.list], fields.name, excludeId)) {
-      throw new DataError('Skjemaet har feil.', {
-        fieldErrors: { name: 'Navnet er allerede i bruk.' },
-      })
+      fieldErrors.name = 'Navnet er allerede i bruk.'
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new DataError('Skjemaet har feil.', { fieldErrors })
     }
     return fields
   }

@@ -31,13 +31,13 @@ function version1() {
 }
 
 describe('migrate', () => {
-  it('støtter versjon 1 og 2', () => {
-    expect(SUPPORTED_VERSIONS).toEqual([1, 2])
+  it('støtter versjon 1, 2 og 3', () => {
+    expect(SUPPORTED_VERSIONS).toEqual([1, 2, 3])
   })
 
   it('gir alle områder «0 - 3 år» ved løft fra versjon 1 (beslutning 7)', () => {
     const migrated = migrate(version1())
-    expect(migrated.schemaVersion).toBe(2)
+    expect(migrated.schemaVersion).toBe(3)
     expect(migrated.areas).toEqual([
       { id: 'a1', name: 'IT', horizon: '0-3' },
       { id: 'a2', name: 'Økonomi', description: 'Regnskap og lønn', horizon: '0-3' },
@@ -78,7 +78,7 @@ describe('eldre data i appen (K25, akseptkriterium)', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(version1()))
     const data = await new LocalStorageRepository().load()
 
-    expect(data.schemaVersion).toBe(2)
+    expect(data.schemaVersion).toBe(3)
     expect(data.areas.map((area) => area.horizon)).toEqual(['0-3', '0-3'])
     expect(data.risks).toHaveLength(1)
   })
@@ -94,7 +94,7 @@ describe('eldre data i appen (K25, akseptkriterium)', () => {
     const result = parseImportFile(JSON.stringify(version1(), null, 2))
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.data.schemaVersion).toBe(2)
+      expect(result.data.schemaVersion).toBe(3)
       expect(result.data.areas.every((area) => area.horizon === '0-3')).toBe(true)
     }
   })
@@ -115,5 +115,36 @@ describe('eldre data i appen (K25, akseptkriterium)', () => {
     }
     const result = parseImportFile(JSON.stringify(data))
     expect(result.ok).toBe(false)
+  })
+})
+
+describe('versjon 2 → 3 (spec 004, egne ID-er)', () => {
+  function version2() {
+    return { ...migrate(version1()), schemaVersion: 2 }
+  }
+
+  it('løfter versjonen og endrer ingen data (beslutning 5)', () => {
+    const original = version2()
+    const migrated = migrate(original)
+    expect(migrated).toEqual({ ...original, schemaVersion: 3 })
+  })
+
+  it('gir ingen elementer en ID', () => {
+    const migrated = migrate(version2()) as { risks: object[]; areas: object[] }
+    expect([...migrated.risks, ...migrated.areas].some((item) => 'code' in item)).toBe(false)
+  })
+
+  it('leser en eksportfil i versjon 2 uten feil', () => {
+    const result = parseImportFile(JSON.stringify(version2()))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.schemaVersion).toBe(3)
+  })
+
+  it('avviser en nyere versjon med riktig melding', () => {
+    const result = parseImportFile(JSON.stringify({ ...version2(), schemaVersion: 4 }))
+    expect(result).toMatchObject({
+      ok: false,
+      message: 'Innholdet har versjon 4, men appen støtter bare versjon 1–3.',
+    })
   })
 })

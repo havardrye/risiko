@@ -59,3 +59,17 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* ID (spec 004) og tittel på samme rad; ID-en er kort (høyst 20 tegn). */
+.titleRow {
+  display: grid;
+  grid-template-columns: minmax(7rem, 11rem) 1fr;
+  gap: 0 1rem;
+  align-items: start;
+}
+
+@media (max-width: 30rem) {
+  .titleRow {
+    grid-template-columns: 1fr;
+  }
+}

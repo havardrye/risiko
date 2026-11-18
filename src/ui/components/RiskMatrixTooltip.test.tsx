@@ -106,3 +106,16 @@ describe('verktøytips i matrisen', () => {
     expect(table.className).not.toMatch(/tooltipsHidden/)
   })
 })
+
+describe('ID i verktøytipset (spec 004, K49)', () => {
+  it('viser ID foran titlene som har ID', () => {
+    render(
+      <RiskMatrix
+        risks={[risk('a', { title: 'Datainnbrudd', code: 'R-007' }), risk('b', { title: 'Phishing' })]}
+        onSelectCell={() => {}}
+      />,
+    )
+    const tooltip = tooltipOf(cellNamed(/^Trussel, sannsynlighet 4 Høy, konsekvens 5/))
+    expect(tooltip).toHaveTextContent('• R-007 Datainnbrudd• Phishing')
+  })
+})

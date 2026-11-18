@@ -26,9 +26,35 @@ function workbook(sheets: Record<string, CellValue[][]>): WorkbookRows {
 
 const RISK_HEADERS = ['Tittel', 'Beskrivelse', 'Type', 'Eier', 'Tema', 'Område', 'Sannsynlighet', 'Konsekvens']
 
+const DATA_SHEETS = ['risikoer', 'eiere', 'temaer', 'områder']
+const isBlank = (cell: CellValue | undefined) => cell === null || cell === undefined || String(cell).trim() === ''
+
+/**
+ * Gir datafanene en ID-kolonne først (spec 004) med unike ID-er, f.eks.
+ * «Ri-1», «Ei-2». Faner som allerede har ID-kolonne, og helt tomme rader,
+ * blir stående som de er. Tester av selve ID-kolonnen bruker `workbook()`.
+ */
+function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellValue[][]> {
+  return Object.fromEntries(
+    Object.entries(sheets).map(([name, [headers = [], ...rows]]) => {
+      const isData = DATA_SHEETS.includes(name.trim().toLocaleLowerCase('nb'))
+      const hasCode = headers.some((header) => String(header ?? '').trim().toLocaleLowerCase('nb') === 'id')
+      if (!isData || hasCode) return [name, [headers, ...rows]]
+      const prefix = name.trim().slice(0, 2)
+      return [
+        name,
+        [
+          ['ID', ...headers],
+          ...rows.map((cells, index) => [cells.every(isBlank) ? null : `${prefix}-${index + 1}`, ...cells]),
+        ],
+      ]
+    }),
+  )
+}
+
 /** En gyldig fil med én av hvert; `overrides` erstatter hele faner. */
 function validFile(overrides: Record<string, CellValue[][]> = {}): WorkbookRows {
-  return workbook({
+  return workbook(withCodes({
     Veiledning: [['Slik fyller du ut'], ['…']],
     Risikoer: [
       RISK_HEADERS,
@@ -38,7 +64,7 @@ function validFile(overrides: Record<string, CellValue[][]> = {}): WorkbookRows 
     Temaer: [['Navn', 'Beskrivelse'], ['Leverandør', null]],
     Områder: [['Navn', 'Når?', 'Beskrivelse'], ['IT', '0 - 3 år', 'Drift og utvikling']],
     ...overrides,
-  })
+  }))
 }
 
 /** Feilene som tekst, slik brukeren ser dem. */
@@ -50,15 +76,16 @@ describe('parseSheets – gyldig fil', () => {
   it('leser alle fire faner med radnummer', () => {
     const result = parseSheets(validFile())
     expect(result.errors).toEqual([])
-    expect(result.owners).toEqual([{ rowNumber: 2, value: { name: 'Kari Nordmann', email: 'kari@example.no' } }])
-    expect(result.themes).toEqual([{ rowNumber: 2, value: { name: 'Leverandør' } }])
+    expect(result.owners).toEqual([{ rowNumber: 2, value: { code: 'Ei-1', name: 'Kari Nordmann', email: 'kari@example.no' } }])
+    expect(result.themes).toEqual([{ rowNumber: 2, value: { code: 'Te-1', name: 'Leverandør' } }])
     expect(result.areas).toEqual([
-      { rowNumber: 2, value: { name: 'IT', horizon: '0-3', description: 'Drift og utvikling' } },
+      { rowNumber: 2, value: { code: 'Om-1', name: 'IT', horizon: '0-3', description: 'Drift og utvikling' } },
     ])
     expect(result.risks).toEqual([
       {
         rowNumber: 2,
         value: {
+          code: 'Ri-1',
           title: 'Leverandør går konkurs',
           description: 'Viktig leverandør',
           type: 'threat',
@@ -77,7 +104,7 @@ describe('parseSheets – gyldig fil', () => {
     delete file.Eiere
     const result = parseSheets(file)
     expect(result.errors).toEqual([])
-    expect(result.owners[0].value).toEqual({ name: 'Ola', email: 'ola@example.no' })
+    expect(result.owners[0].value).toEqual({ code: 'ei-1', name: 'Ola', email: 'ola@example.no' })
   })
 
   it('ignorerer ukjente faner og kolonner (K26)', () => {
@@ -88,12 +115,12 @@ describe('parseSheets – gyldig fil', () => {
       }),
     )
     expect(result.errors).toEqual([])
-    expect(result.themes[0].value).toEqual({ name: 'Leverandør' })
+    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør' })
   })
 
   it('trimmer tekst og lar tomme valgfrie felt være tomme', () => {
     const result = parseSheets(validFile({ Temaer: [['Navn', 'Beskrivelse'], ['  Leverandør  ', '   ']] }))
-    expect(result.themes[0].value).toEqual({ name: 'Leverandør' })
+    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør' })
   })
 
   it('godtar tall som tekst og tall som tall', () => {
@@ -119,12 +146,12 @@ describe('parseSheets – tomme rader (K30)', () => {
     const result = parseSheets(
       validFile({
         Eiere: [
-          ['Navn', 'E-post', 'Notat'],
-          [null, null, null],
-          ['Kari Nordmann', null, null],
-          ['  ', '', 'bare et notat'],
+          ['ID', 'Navn', 'E-post', 'Notat'],
+          [null, null, null, null],
+          ['E-1', 'Kari Nordmann', null, null],
+          [' ', '  ', '', 'bare et notat'],
           [],
-          ['Ola Nordmann', null, null],
+          ['E-2', 'Ola Nordmann', null, null],
         ],
       }),
     )
@@ -160,7 +187,7 @@ describe('parseSheets – faner og kolonner (K30)', () => {
   it('godtar at valgfrie kolonner mangler', () => {
     const result = parseSheets(validFile({ Eiere: [['Navn'], ['Kari Nordmann']] }))
     expect(result.errors).toEqual([])
-    expect(result.owners[0].value).toEqual({ name: 'Kari Nordmann' })
+    expect(result.owners[0].value).toEqual({ code: 'Ei-1', name: 'Kari Nordmann' })
   })
 
   it('melder en kolonne som står to ganger', () => {
@@ -318,7 +345,7 @@ describe('parseWorkbook – gyldig fil (K26)', () => {
     expect([data.owners.length, data.themes.length, data.areas.length, data.risks.length]).toEqual([
       3, 2, 2, 10,
     ])
-    expect(data.schemaVersion).toBe(2)
+    expect(data.schemaVersion).toBe(3)
 
     const nameOf = (list: readonly { id: string; name: string }[], id: string) =>
       list.find((item) => item.id === id)?.name
@@ -452,5 +479,66 @@ describe('parseWorkbook – helheten (K28, K29)', () => {
       ok: false,
       errors: [{ sheet: 'Temaer', row: 3, column: 'Navn', message: 'Navn er påkrevd' }],
     })
+  })
+})
+
+describe('ID i Excel (spec 004, K51–K53)', () => {
+  const HEADERS = ['ID', ...RISK_HEADERS]
+  const row = (code: CellValue, title: string): CellValue[] => [
+    code,
+    title,
+    null,
+    'Trussel',
+    'Kari Nordmann',
+    'Leverandør',
+    'IT',
+    1,
+    1,
+  ]
+
+  it('tar ID-ene med inn i datasettet', () => {
+    const result = parse(validFile({ Risikoer: [HEADERS, row('R-007', 'A')] }))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.risks[0]?.code).toBe('R-007')
+    expect(result.data.owners[0]?.code).toBe('Ei-1')
+  })
+
+  it('melder to rader med samme ID i Risikoer på begge radene (akseptkriterium)', () => {
+    expect(failures(validFile({ Risikoer: [HEADERS, row('R-3', 'A'), row('R-2', 'B'), row(' r-3', 'C')] }))).toEqual([
+      'Risikoer, rad 2, ID: «R-3» står også på rad 4. ID må være unik.',
+      'Risikoer, rad 4, ID: «r-3» står også på rad 2. ID må være unik.',
+    ])
+  })
+
+  it('melder like ID-er i Eiere, og like navn for seg', () => {
+    expect(
+      failures(validFile({ Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann'], ['E-1', 'Per Hansen']] })),
+    ).toEqual([
+      'Eiere, rad 2, ID: «E-1» står også på rad 3. ID må være unik.',
+      'Eiere, rad 3, ID: «E-1» står også på rad 2. ID må være unik.',
+    ])
+  })
+
+  it('avviser en fil uten ID-kolonne (akseptkriterium, beslutning 6)', () => {
+    const file = workbook({
+      Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1]],
+      Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']],
+      Temaer: [['ID', 'Navn'], ['T-1', 'Leverandør']],
+      Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år']],
+    })
+    expect(failures(file)).toEqual(['Risikoer, ID: Kolonnen «ID» mangler'])
+  })
+
+  it('melder tom ID og ID på mer enn 20 tegn med fane, rad og kolonne', () => {
+    expect(failures(validFile({ Risikoer: [HEADERS, row(null, 'A'), row('x'.repeat(21), 'B')] }))).toEqual([
+      'Risikoer, rad 2, ID: ID er påkrevd',
+      'Risikoer, rad 3, ID: ID kan være høyst 20 tegn',
+    ])
+  })
+
+  it('leser en ID som er et tall i Excel, som tekst', () => {
+    const result = parse(validFile({ Risikoer: [HEADERS, row(7, 'A')] }))
+    expect(result.ok && result.data.risks[0]?.code).toBe('7')
   })
 })

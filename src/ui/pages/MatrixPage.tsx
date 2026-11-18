@@ -18,6 +18,7 @@ import { OPEN_RISK_PARAM, ROUTES } from '../routes.ts'
 import { usePageTitle } from '../usePageTitle.ts'
 import { filterSearch, useRiskFilter } from '../useRiskFilter.ts'
 import styles from './MatrixPage.module.css'
+import { withCode } from '../codeLabel.ts'
 
 type CellKey = Pick<MatrixCell, 'type' | 'likelihood' | 'consequence'>
 
@@ -117,7 +118,7 @@ export function MatrixPage() {
             <ul className={styles.riskList}>
               {selectedCell.risks.map((risk) => (
                 <li key={risk.id}>
-                  <Link to={riskLink(risk.id)}>{risk.title}</Link>
+                  <Link to={riskLink(risk.id)}>{withCode(risk.code, risk.title)}</Link>
                   <span className="muted"> · {ownerNames.get(risk.ownerId)}</span>
                 </li>
               ))}

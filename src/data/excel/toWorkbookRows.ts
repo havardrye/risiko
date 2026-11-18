@@ -52,6 +52,7 @@ export function toWorkbookRows(data: AppData): WorkbookRows {
     [RISK_SHEET.name]: sheetRows(
       riskColumns,
       data.risks.map((risk) => ({
+        code: text(risk.code),
         title: risk.title,
         description: text(risk.description),
         type: RISK_TYPE_LABELS[risk.type],
@@ -66,15 +67,20 @@ export function toWorkbookRows(data: AppData): WorkbookRows {
     ),
     [OWNER_SHEET.name]: sheet(
       OWNER_SHEET,
-      data.owners.map((owner) => ({ name: owner.name, email: text(owner.email) })),
+      data.owners.map((owner) => ({ code: text(owner.code), name: owner.name, email: text(owner.email) })),
     ),
     [THEME_SHEET.name]: sheet(
       THEME_SHEET,
-      data.themes.map((theme) => ({ name: theme.name, description: text(theme.description) })),
+      data.themes.map((theme) => ({
+        code: text(theme.code),
+        name: theme.name,
+        description: text(theme.description),
+      })),
     ),
     [AREA_SHEET.name]: sheet(
       AREA_SHEET,
       data.areas.map((area) => ({
+        code: text(area.code),
         name: area.name,
         horizon: HORIZON_LABELS[area.horizon],
         description: text(area.description),

@@ -4,7 +4,7 @@ import { StoredDataError } from './repository.ts'
 
 function sampleData(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [{ id: 'o1', name: 'Kari Nordmann', email: 'kari@example.com' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
     areas: [{ id: 'a1', name: 'IT', description: 'Drift og utvikling', horizon: '0-3' }],
@@ -72,8 +72,8 @@ describe('LocalStorageRepository', () => {
       ],
       [
         'ukjent versjon',
-        JSON.stringify({ ...emptyAppData(), schemaVersion: 3 }),
-        'Innholdet har versjon 3, men appen støtter bare versjon 1–2.',
+        JSON.stringify({ ...emptyAppData(), schemaVersion: 4 }),
+        'Innholdet har versjon 4, men appen støtter bare versjon 1–3.',
       ],
     ])('gir feil ved %s og lar innholdet stå urørt', async (_name, raw, message) => {
       localStorage.setItem(STORAGE_KEY, raw)

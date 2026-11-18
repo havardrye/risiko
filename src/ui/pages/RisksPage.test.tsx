@@ -4,7 +4,7 @@ import { renderApp } from '../../test/renderApp.tsx'
 
 function references(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
       { id: 'o1', name: 'Ola Åsen' },
       { id: 'o2', name: 'Kari Nordmann' },
@@ -99,6 +99,7 @@ describe('risikoskjema (K1–K3)', () => {
   it('lagrer en gyldig risiko med riktige verdier og lukker dialogen', async () => {
     const { user, dialog, repository } = await openForm()
 
+    await user.type(within(dialog).getByLabelText('ID'), 'R-1')
     await user.type(within(dialog).getByLabelText('Tittel'), 'Leverandør går konkurs')
     await user.type(within(dialog).getByLabelText('Beskrivelse (valgfritt)'), 'Kritisk drift')
     await user.selectOptions(within(dialog).getByLabelText('Risikoeier'), 'Kari Nordmann')
@@ -113,6 +114,7 @@ describe('risikoskjema (K1–K3)', () => {
     expect(row).toHaveTextContent(/Trussel.*Kari Nordmann.*Leverandør.*IT.*10.*Middels/)
     const [risk] = (await repository.load()).risks
     expect(risk).toMatchObject({
+      code: 'R-1',
       title: 'Leverandør går konkurs',
       description: 'Kritisk drift',
       type: 'threat',
@@ -171,6 +173,7 @@ describe('risikoskjema (K1–K3)', () => {
 
   it('lagrer en mulighet', async () => {
     const { user, dialog, repository } = await openForm()
+    await user.type(within(dialog).getByLabelText('ID'), 'M-1')
     await user.type(within(dialog).getByLabelText('Tittel'), 'Ny støtteordning')
     await user.click(within(dialog).getByLabelText('Mulighet'))
     await user.selectOptions(within(dialog).getByLabelText('Risikoeier'), 'Ola Åsen')
@@ -189,6 +192,7 @@ describe('risikoskjema (K1–K3)', () => {
     const { user, dialog, repository } = await openForm()
     await user.click(within(dialog).getByRole('button', { name: 'Lagre' }))
 
+    expect(within(dialog).getByLabelText('ID')).toHaveAccessibleDescription('ID er påkrevd')
     expect(within(dialog).getByLabelText('Tittel')).toHaveAccessibleDescription('Tittel er påkrevd')
     expect(within(dialog).getByLabelText('Risikoeier')).toHaveAccessibleDescription(
       'Velg en risikoeier',
@@ -201,7 +205,7 @@ describe('risikoskjema (K1–K3)', () => {
     expect(within(dialog).getByLabelText('Konsekvens')).toHaveAccessibleDescription(
       'Velg en verdi fra 1 til 5',
     )
-    expect(within(dialog).getByLabelText('Tittel')).toHaveFocus()
+    expect(within(dialog).getByLabelText('ID')).toHaveFocus()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect((await repository.load()).risks).toEqual([])
   })
@@ -217,6 +221,7 @@ describe('risikoskjema (K1–K3)', () => {
 
     await user.selectOptions(within(dialog).getByLabelText('Risikoeier'), 'Ola Åsen')
     expect(within(dialog).getByLabelText('Risikoeier')).toBeValid()
+    await user.type(within(dialog).getByLabelText('ID'), 'R-1')
 
     await user.click(within(dialog).getByRole('button', { name: 'Lagre' }))
     expect(within(dialog).getByLabelText('Tema')).toHaveFocus()

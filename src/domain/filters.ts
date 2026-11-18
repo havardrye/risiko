@@ -3,7 +3,7 @@ import { level, score, type Level } from './scoring.ts'
 
 /** Filtre som deles av register og matrise (spec K4, K9). Utelatt felt betyr «alle». */
 export interface RiskFilter {
-  /** Fritekst som må finnes i tittel eller beskrivelse. */
+  /** Fritekst som må finnes i ID, tittel eller beskrivelse (K4, spec 004 K55). */
   search?: string
   type?: RiskType
   ownerId?: Id
@@ -12,7 +12,7 @@ export interface RiskFilter {
   level?: Level
 }
 
-export type SortKey = 'score' | 'title' | 'updatedAt'
+export type SortKey = 'code' | 'score' | 'title' | 'updatedAt'
 export type SortDirection = 'asc' | 'desc'
 
 export interface RiskSort {
@@ -28,7 +28,7 @@ const LOCALE = 'nb'
 function matchesSearch(risk: Risk, search: string): boolean {
   const needle = search.trim().toLocaleLowerCase(LOCALE)
   if (needle === '') return true
-  const haystack = `${risk.title}\n${risk.description ?? ''}`.toLocaleLowerCase(LOCALE)
+  const haystack = `${risk.code ?? ''}\n${risk.title}\n${risk.description ?? ''}`.toLocaleLowerCase(LOCALE)
   return haystack.includes(needle)
 }
 
@@ -44,11 +44,15 @@ export function filterRisks(risks: readonly Risk[], filter: RiskFilter): Risk[] 
   )
 }
 
+// Tar hensyn til tall, så «R-2» kommer før «R-10» (spec 004, K55).
+const NATURAL = new Intl.Collator(LOCALE, { sensitivity: 'base', numeric: true })
+
 function compareTitle(a: Risk, b: Risk): number {
-  return a.title.localeCompare(b.title, LOCALE, { sensitivity: 'base', numeric: true })
+  return NATURAL.compare(a.title, b.title)
 }
 
 const COMPARATORS: Record<SortKey, (a: Risk, b: Risk) => number> = {
+  code: (a, b) => NATURAL.compare(a.code ?? '', b.code ?? ''),
   score: (a, b) => score(a.likelihood, a.consequence) - score(b.likelihood, b.consequence),
   title: compareTitle,
   // ISO 8601-datoer i UTC kan sammenlignes som tekst.
@@ -62,5 +66,8 @@ const COMPARATORS: Record<SortKey, (a: Risk, b: Risk) => number> = {
 export function sortRisks(risks: readonly Risk[], sort: RiskSort = DEFAULT_SORT): Risk[] {
   const compare = COMPARATORS[sort.key]
   const factor = sort.direction === 'asc' ? 1 : -1
-  return [...risks].sort((a, b) => factor * compare(a, b) || compareTitle(a, b))
+  const sorted = [...risks].sort((a, b) => factor * compare(a, b) || compareTitle(a, b))
+  if (sort.key !== 'code') return sorted
+  // Risikoer uten ID (fra før spec 004) står sist i begge retninger.
+  return [...sorted.filter((risk) => risk.code), ...sorted.filter((risk) => !risk.code)]
 }

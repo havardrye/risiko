@@ -1,6 +1,7 @@
 import {
   appDataSchema,
   areaSchema,
+  codeSchema,
   emptyAppData,
   ownerInputSchema,
   ownerSchema,
@@ -10,6 +11,7 @@ import {
 } from './schema.ts'
 
 const validRiskInput = {
+  code: 'R-1',
   title: 'Leverandør går konkurs',
   type: 'threat',
   ownerId: 'o1',
@@ -105,10 +107,10 @@ describe('referanseregistre', () => {
   })
 
   it('avviser eier uten navn og med ugyldig e-post', () => {
-    const noName = ownerInputSchema.safeParse({ name: ' ' })
+    const noName = ownerInputSchema.safeParse({ code: 'E-1', name: ' ' })
     expect(noName.success).toBe(false)
     expect(noName.error?.issues[0]?.message).toBe('Navn er påkrevd')
-    expect(ownerInputSchema.safeParse({ name: 'Kari', email: 'ikke-epost' }).success).toBe(false)
+    expect(ownerInputSchema.safeParse({ code: 'E-1', name: 'Kari', email: 'ikke-epost' }).success).toBe(false)
   })
 
   it('godtar tema og område med og uten beskrivelse', () => {
@@ -129,7 +131,7 @@ describe('appDataSchema', () => {
 
   it('godtar et fullt datasett', () => {
     const data = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       owners: [{ id: 'o1', name: 'Kari' }],
       themes: [{ id: 't1', name: 'Leverandør' }],
       areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
@@ -138,7 +140,7 @@ describe('appDataSchema', () => {
     expect(appDataSchema.safeParse(data).success).toBe(true)
   })
 
-  it.each([0, 1, 3, '2', undefined])('avviser schemaVersion %s', (version) => {
+  it.each([0, 1, 2, 4, '3', undefined])('avviser schemaVersion %s', (version) => {
     expect(appDataSchema.safeParse({ ...emptyAppData(), schemaVersion: version }).success).toBe(false)
   })
 
@@ -150,5 +152,43 @@ describe('appDataSchema', () => {
   it('avviser datasett med en ugyldig risiko', () => {
     const data = { ...emptyAppData(), risks: [{ ...validRisk, likelihood: 9 }] }
     expect(appDataSchema.safeParse(data).success).toBe(false)
+  })
+})
+
+describe('ID (code, spec 004)', () => {
+  it('godtar fritekst og trimmer mellomrom', () => {
+    expect(codeSchema.parse('  R-007 ')).toBe('R-007')
+    expect(codeSchema.parse('IT-12')).toBe('IT-12')
+    expect(codeSchema.parse('7')).toBe('7')
+  })
+
+  it('godtar 20 tegn, men ikke 21 (K48)', () => {
+    expect(codeSchema.safeParse('x'.repeat(20)).success).toBe(true)
+    const result = codeSchema.safeParse('x'.repeat(21))
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.message).toBe('ID kan være høyst 20 tegn')
+  })
+
+  it('avviser tom ID med «ID er påkrevd»', () => {
+    expect(codeSchema.safeParse('   ').error?.issues[0]?.message).toBe('ID er påkrevd')
+  })
+
+  it('er valgfri i lagrede data, slik at elementer fra før kan mangle ID (beslutning 5)', () => {
+    expect(ownerSchema.safeParse({ id: 'o1', name: 'Kari' }).success).toBe(true)
+    expect(areaSchema.safeParse({ id: 'a1', name: 'IT', horizon: '0-3' }).success).toBe(true)
+    expect(riskSchema.safeParse(validRisk).success).toBe(true)
+  })
+
+  it('lagres når den er satt', () => {
+    expect(themeSchema.parse({ id: 't1', code: ' T-01 ', name: 'Leverandør' })).toEqual({
+      id: 't1',
+      code: 'T-01',
+      name: 'Leverandør',
+    })
+    expect(riskSchema.parse({ ...validRisk, code: 'R-007' }).code).toBe('R-007')
+  })
+
+  it('kontrolleres også i lagrede data', () => {
+    expect(ownerSchema.safeParse({ id: 'o1', code: 'x'.repeat(21), name: 'Kari' }).success).toBe(false)
   })
 })

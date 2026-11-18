@@ -19,7 +19,7 @@ function risk(overrides: Partial<Risk> & Pick<Risk, 'id' | 'title'>): Risk {
 
 function seed(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
       { id: 'o1', name: 'Kari Nordmann' },
       { id: 'o2', name: 'Ola Åsen' },
@@ -212,5 +212,21 @@ describe('hopp til innhold', () => {
     expect(screen.getByRole('main')).toHaveFocus()
     expect(screen.getByRole('heading', { level: 1, name: 'Risikomatrise' })).toBeInTheDocument()
     expect(currentLocation()).toBe('/matrise')
+  })
+})
+
+describe('ID i matrisedetaljene (spec 004, K49)', () => {
+  it('viser «R-007» foran tittelen, og bare tittelen når ID mangler (akseptkriterium)', async () => {
+    const data = seed()
+    data.risks[0] = { ...data.risks[0]!, code: 'R-007' }
+    const { user } = renderApp({ route: '/matrise', data })
+    await screen.findByRole('heading', { level: 1, name: 'Risikomatrise' })
+    await user.click(cellButton(THREAT_4_5))
+
+    const details = screen.getByRole('region', {
+      name: 'Trussel: sannsynlighet 4 høy, konsekvens 5 svært alvorlig',
+    })
+    expect(within(details).getByRole('link', { name: 'R-007 Datainnbrudd' })).toBeInTheDocument()
+    expect(within(details).getByRole('link', { name: 'Phishing' })).toBeInTheDocument()
   })
 })

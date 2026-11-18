@@ -182,3 +182,32 @@ describe('sortRisks', () => {
     expect(ids(risks)).toEqual(before)
   })
 })
+
+describe('ID i søk og sortering (spec 004, K55)', () => {
+  const coded: Risk[] = [
+    risk({ id: 'a', code: 'R-10', title: 'Alfa' }),
+    risk({ id: 'b', title: 'Bravo' }),
+    risk({ id: 'c', code: 'R-2', title: 'Charlie' }),
+    risk({ id: 'd', code: 'r-1', title: 'Delta' }),
+    risk({ id: 'e', title: 'Echo' }),
+  ]
+  const ids = (list: Risk[]) => list.map((item) => item.id)
+
+  it('finner en risiko på ID (akseptkriterium)', () => {
+    expect(ids(filterRisks(coded, { search: 'R-10' }))).toEqual(['a'])
+    expect(ids(filterRisks(coded, { search: ' r-2 ' }))).toEqual(['c'])
+  })
+
+  it('sorterer stigende med tall i riktig rekkefølge: R-2 før R-10 (akseptkriterium)', () => {
+    expect(ids(sortRisks(coded, { key: 'code', direction: 'asc' }))).toEqual(['d', 'c', 'a', 'b', 'e'])
+  })
+
+  it('sorterer synkende, og risikoer uten ID står fortsatt sist', () => {
+    expect(ids(sortRisks(coded, { key: 'code', direction: 'desc' }))).toEqual(['a', 'c', 'd', 'b', 'e'])
+  })
+
+  it('sorterer risikoer uten ID etter tittel seg imellom', () => {
+    const sorted = sortRisks(coded, { key: 'code', direction: 'desc' })
+    expect(sorted.slice(-2).map((item) => item.title)).toEqual(['Bravo', 'Echo'])
+  })
+})

@@ -6,22 +6,23 @@ const CREATED = '2026-11-01T08:00:00.000Z'
 
 function sample(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
-      { id: 'o1', name: 'Kari Nordmann', email: 'kari@example.no' },
-      { id: 'o2', name: 'Ola Nordmann' },
+      { id: 'o1', code: 'E-1', name: 'Kari Nordmann', email: 'kari@example.no' },
+      { id: 'o2', code: 'E-2', name: 'Ola Nordmann' },
     ],
     themes: [
-      { id: 't1', name: 'Leverandør', description: 'Innkjøp og avtaler' },
-      { id: 't2', name: 'Informasjonssikkerhet' },
+      { id: 't1', code: 'T-1', name: 'Leverandør', description: 'Innkjøp og avtaler' },
+      { id: 't2', code: 'T-2', name: 'Informasjonssikkerhet' },
     ],
     areas: [
-      { id: 'a1', name: 'IT', horizon: '0-3' },
-      { id: 'a2', name: 'Økonomi', horizon: '5+', description: 'Regnskap og lønn' },
+      { id: 'a1', code: 'O-1', name: 'IT', horizon: '0-3' },
+      { id: 'a2', code: 'O-2', name: 'Økonomi', horizon: '5+', description: 'Regnskap og lønn' },
     ],
     risks: [
       {
         id: 'r1',
+        code: 'R-1',
         title: 'Leverandør går konkurs',
         description: 'Viktig leverandør',
         type: 'threat',
@@ -35,6 +36,7 @@ function sample(): AppData {
       },
       {
         id: 'r2',
+        code: 'R-2',
         title: '=Ny avtale',
         type: 'opportunity',
         ownerId: 'o2',
@@ -54,6 +56,7 @@ describe('toWorkbookRows (K35)', () => {
     const rows = toWorkbookRows(sample())
     expect(Object.keys(rows)).toEqual(['Risikoer', 'Eiere', 'Temaer', 'Områder'])
     expect(rows.Risikoer.headers).toEqual([
+      'ID',
       'Tittel',
       'Beskrivelse',
       'Type',
@@ -65,9 +68,9 @@ describe('toWorkbookRows (K35)', () => {
       'Score',
       'Nivå',
     ])
-    expect(rows.Eiere.headers).toEqual(['Navn', 'E-post'])
-    expect(rows.Temaer.headers).toEqual(['Navn', 'Beskrivelse'])
-    expect(rows.Områder.headers).toEqual(['Navn', 'Når?', 'Beskrivelse'])
+    expect(rows.Eiere.headers).toEqual(['ID', 'Navn', 'E-post'])
+    expect(rows.Temaer.headers).toEqual(['ID', 'Navn', 'Beskrivelse'])
+    expect(rows.Områder.headers).toEqual(['ID', 'Navn', 'Når?', 'Beskrivelse'])
   })
 
   it('skriver risikoer med navn, visningstekster, score og nivå', () => {
@@ -75,6 +78,7 @@ describe('toWorkbookRows (K35)', () => {
       {
         rowNumber: 2,
         cells: [
+          'R-1',
           'Leverandør går konkurs',
           'Viktig leverandør',
           'Trussel',
@@ -89,7 +93,7 @@ describe('toWorkbookRows (K35)', () => {
       },
       {
         rowNumber: 3,
-        cells: ['=Ny avtale', null, 'Mulighet', 'Ola Nordmann', 'Informasjonssikkerhet', 'Økonomi', 1, 4, 4, 'Middels'],
+        cells: ['R-2', '=Ny avtale', null, 'Mulighet', 'Ola Nordmann', 'Informasjonssikkerhet', 'Økonomi', 1, 4, 4, 'Middels'],
       },
     ])
   })
@@ -97,22 +101,22 @@ describe('toWorkbookRows (K35)', () => {
   it('skriver eiere, temaer og områder, med tomme celler for tomme valgfrie felt', () => {
     const rows = toWorkbookRows(sample())
     expect(rows.Eiere.rows.map((row) => row.cells)).toEqual([
-      ['Kari Nordmann', 'kari@example.no'],
-      ['Ola Nordmann', null],
+      ['E-1', 'Kari Nordmann', 'kari@example.no'],
+      ['E-2', 'Ola Nordmann', null],
     ])
     expect(rows.Temaer.rows.map((row) => row.cells)).toEqual([
-      ['Leverandør', 'Innkjøp og avtaler'],
-      ['Informasjonssikkerhet', null],
+      ['T-1', 'Leverandør', 'Innkjøp og avtaler'],
+      ['T-2', 'Informasjonssikkerhet', null],
     ])
     expect(rows.Områder.rows.map((row) => row.cells)).toEqual([
-      ['IT', '0 - 3 år', null],
-      ['Økonomi', '5 år +', 'Regnskap og lønn'],
+      ['O-1', 'IT', '0 - 3 år', null],
+      ['O-2', 'Økonomi', '5 år +', 'Regnskap og lønn'],
     ])
   })
 
   it('gir tomme faner med overskrifter for et tomt datasett (malen, K33)', () => {
-    const rows = toWorkbookRows({ schemaVersion: 2, owners: [], themes: [], areas: [], risks: [] })
-    expect(rows.Områder).toEqual({ headers: ['Navn', 'Når?', 'Beskrivelse'], rows: [] })
+    const rows = toWorkbookRows({ schemaVersion: 3, owners: [], themes: [], areas: [], risks: [] })
+    expect(rows.Områder).toEqual({ headers: ['ID', 'Navn', 'Når?', 'Beskrivelse'], rows: [] })
     expect(rows.Risikoer.rows).toEqual([])
   })
 
@@ -134,5 +138,14 @@ describe('toWorkbookRows (K35)', () => {
       })),
     })
     expect(withoutIds(result.data)).toEqual(withoutIds(original))
+  })
+})
+
+describe('ID i eksporten (spec 004, K51)', () => {
+  it('skriver tom ID-celle for elementer fra før spec 004', () => {
+    const data = sample()
+    const { code: _code, ...legacy } = data.owners[1]!
+    data.owners = [data.owners[0]!, legacy]
+    expect(toWorkbookRows(data).Eiere.rows.map((row) => row.cells[0])).toEqual(['E-1', null])
   })
 })

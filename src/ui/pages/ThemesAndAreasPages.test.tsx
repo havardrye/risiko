@@ -8,15 +8,15 @@ import { renderApp } from '../../test/renderApp.tsx'
 
 function seed(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [
-      { id: 't1', name: 'Leverandør', description: 'Avhengighet av eksterne' },
-      { id: 't2', name: 'Sikkerhet' },
+      { id: 't1', code: 'T-1', name: 'Leverandør', description: 'Avhengighet av eksterne' },
+      { id: 't2', code: 'T-2', name: 'Sikkerhet' },
     ],
     areas: [
-      { id: 'a1', name: 'IT', horizon: '0-3' },
-      { id: 'a2', name: 'Økonomi', description: 'Regnskap og lønn', horizon: '3-5' },
+      { id: 'a1', code: 'O-1', name: 'IT', horizon: '0-3' },
+      { id: 'a2', code: 'O-2', name: 'Økonomi', description: 'Regnskap og lønn', horizon: '3-5' },
     ],
     risks: [
       {
@@ -49,10 +49,13 @@ function rows() {
 
 type User = ReturnType<typeof renderApp>['user']
 
-/** Fyller ut påkrevde felt utover navn. Bare områder har det («Når?», K25). */
+/** Fyller ut påkrevde felt utover navn: ID (spec 004), og «Når?» for områder (K25). */
 const FILL_REQUIRED = {
-  themes: async () => {},
+  themes: async (user: User, dialog: HTMLElement) => {
+    await user.type(within(dialog).getByLabelText('ID'), 'X-9')
+  },
   areas: async (user: User, dialog: HTMLElement) => {
+    await user.type(within(dialog).getByLabelText('ID'), 'X-9')
     await user.selectOptions(within(dialog).getByLabelText('Når?'), '0 - 3 år')
   },
 }
@@ -68,8 +71,8 @@ const PAGES = [
     list: 'themes',
     empty: /Ingen risikotemaer er registrert ennå/,
     rows: [
-      ['Leverandør', 'Avhengighet av eksterne', '1'],
-      ['Sikkerhet', '–', '0'],
+      ['T-1', 'Leverandør', 'Avhengighet av eksterne', '1'],
+      ['T-2', 'Sikkerhet', '–', '0'],
     ],
     inUse: 'Leverandør',
     unused: 'Sikkerhet',
@@ -84,8 +87,8 @@ const PAGES = [
     list: 'areas',
     empty: /Ingen risikoområder er registrert ennå/,
     rows: [
-      ['IT', '0 - 3 år', '–', '1'],
-      ['Økonomi', '3 - 5 år', 'Regnskap og lønn', '0'],
+      ['O-1', 'IT', '0 - 3 år', '–', '1'],
+      ['O-2', 'Økonomi', '3 - 5 år', 'Regnskap og lønn', '0'],
     ],
     inUse: 'IT',
     unused: 'Økonomi',
@@ -191,6 +194,7 @@ describe('«Når?» på områder (K25)', () => {
   it('krever valg: viser feil ved feltet og lagrer ingenting (akseptkriterium)', async () => {
     const { user, repository } = await open()
     await user.click(screen.getByRole('button', { name: 'Nytt område' }))
+    await user.type(screen.getByLabelText('ID'), 'O-3')
     await user.type(screen.getByLabelText('Navn'), 'Personal')
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
 
@@ -203,12 +207,13 @@ describe('«Når?» på områder (K25)', () => {
   it('lagrer valgt verdi og viser den i listen (akseptkriterium)', async () => {
     const { user, repository } = await open()
     await user.click(screen.getByRole('button', { name: 'Nytt område' }))
+    await user.type(screen.getByLabelText('ID'), 'O-3')
     await user.type(screen.getByLabelText('Navn'), 'Personal')
     await user.selectOptions(screen.getByLabelText('Når?'), '5 år +')
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
 
     expect(await screen.findByRole('rowheader', { name: 'Personal' })).toBeInTheDocument()
-    expect(rows()).toContainEqual(['Personal', '5 år +', '–', '0'])
+    expect(rows()).toContainEqual(['O-3', 'Personal', '5 år +', '–', '0'])
     expect((await repository.load()).areas).toContainEqual(
       expect.objectContaining({ name: 'Personal', horizon: '5+' }),
     )
@@ -222,12 +227,23 @@ describe('«Når?» på områder (K25)', () => {
     await user.selectOptions(screen.getByLabelText('Når?'), '0 - 3 år')
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
 
-    expect(rows()).toContainEqual(['Økonomi', '0 - 3 år', 'Regnskap og lønn', '0'])
+    expect(rows()).toContainEqual(['O-2', 'Økonomi', '0 - 3 år', 'Regnskap og lønn', '0'])
     expect((await repository.load()).areas.find((a) => a.id === 'a2')?.horizon).toBe('0-3')
   })
 
   it('viser kolonnen «Når?» bare for områder', async () => {
     await open()
     expect(screen.getByRole('columnheader', { name: 'Når?' })).toBeInTheDocument()
+  })
+})
+
+describe('?rediger= i tema- og områdesidene (spec 004)', () => {
+  it.each([
+    ['/temaer?rediger=t2', 'Endre tema', 'Sikkerhet'],
+    ['/omrader?rediger=a2', 'Endre område', 'Økonomi'],
+  ])('%s åpner riktig element', async (route, title, name) => {
+    renderApp({ route, data: seed() })
+    const dialog = await screen.findByRole('dialog', { name: title })
+    expect(within(dialog).getByLabelText('Navn')).toHaveValue(name)
   })
 })

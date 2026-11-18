@@ -3,7 +3,7 @@ import { exportFileName, parseImportFile, serializeAppData, summarize } from './
 
 function sampleData(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
       { id: 'o1', name: 'Kari Nordmann', email: 'kari@example.com' },
       { id: 'o2', name: 'Ola Åsen' },
@@ -73,7 +73,7 @@ describe('eksport og import', () => {
 
   it('eksporterer lesbar JSON med versjonsnummer', () => {
     const text = serializeAppData(emptyAppData())
-    expect(text).toContain('\n  "schemaVersion": 2,')
+    expect(text).toContain('\n  "schemaVersion": 3,')
     expect(text.endsWith('\n')).toBe(true)
   })
 
@@ -107,8 +107,8 @@ describe('parseImportFile avviser', () => {
   })
 
   it('fil fra en nyere versjon', () => {
-    const text = JSON.stringify({ ...sampleData(), schemaVersion: 3 })
-    expect(rejected(text).message).toBe('Innholdet har versjon 3, men appen støtter bare versjon 1–2.')
+    const text = JSON.stringify({ ...sampleData(), schemaVersion: 4 })
+    expect(rejected(text).message).toBe('Innholdet har versjon 4, men appen støtter bare versjon 1–3.')
   })
 
   it('fil med ugyldig felt, og sier hvor feilen er', () => {
@@ -145,5 +145,21 @@ describe('parseImportFile avviser', () => {
     expect(rejected(text).details).toEqual([
       'Navnet «kari nordmann» er brukt flere ganger (risikoeier).',
     ])
+  })
+})
+
+describe('egne ID-er i JSON-import (spec 004)', () => {
+  it('godtar ID-er og beholder dem', () => {
+    const data = { ...sampleData(), owners: sampleData().owners.map((owner, index) => ({ ...owner, code: `E-${index + 1}` })) }
+    const result = parseImportFile(serializeAppData(data))
+    expect(result.ok && result.data.owners[0]?.code).toBe('E-1')
+  })
+
+  it('avviser like ID-er innen en type', () => {
+    const base = sampleData()
+    const risks = [base.risks[0]!, { ...base.risks[0]!, id: 'kopi' }].map((risk) => ({ ...risk, code: 'R-1' }))
+    const result = parseImportFile(serializeAppData({ ...base, risks }))
+    expect(result).toMatchObject({ ok: false, message: 'Innholdet henger ikke sammen.' })
+    if (!result.ok) expect(result.details).toContain('ID-en «R-1» er brukt flere ganger (risiko).')
   })
 })

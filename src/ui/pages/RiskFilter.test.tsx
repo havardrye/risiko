@@ -19,7 +19,7 @@ function risk(overrides: Partial<Risk> & Pick<Risk, 'id' | 'title'>): Risk {
 
 function seed(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
       { id: 'o1', name: 'Kari Nordmann' },
       { id: 'o2', name: 'Ola Åsen' },

@@ -8,7 +8,7 @@ const T2 = '2026-11-18T12:30:00.000Z'
 
 function seed(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
       { id: 'o1', name: 'Kari Nordmann' },
       { id: 'o2', name: 'Ola Åsen' },
@@ -33,6 +33,7 @@ function seed(): AppData {
 }
 
 const riskInput: RiskInput = {
+  code: 'R-100',
   title: 'Datainnbrudd',
   type: 'threat',
   ownerId: 'o2',
@@ -220,15 +221,16 @@ describe('eiere, temaer og områder', () => {
   it('oppretter eier, tema og område', async () => {
     const { store, data } = await setup()
     const owner = await store.createReference('owner', {
+      code: ' E-9 ',
       name: ' Per Hansen ',
       email: 'per@example.com',
     })
-    const theme = await store.createReference('theme', { name: 'Sikkerhet', description: 'IKT' })
-    const area = await store.createReference('area', { name: 'Økonomi', horizon: '3-5' })
+    const theme = await store.createReference('theme', { code: 'K-1', name: 'Sikkerhet', description: 'IKT' })
+    const area = await store.createReference('area', { code: 'K-2', name: 'Økonomi', horizon: '3-5' })
 
-    expect(owner).toEqual({ id: 'ny-1', name: 'Per Hansen', email: 'per@example.com' })
-    expect(theme).toEqual({ id: 'ny-2', name: 'Sikkerhet', description: 'IKT' })
-    expect(area).toEqual({ id: 'ny-3', name: 'Økonomi', horizon: '3-5' })
+    expect(owner).toEqual({ id: 'ny-1', code: 'E-9', name: 'Per Hansen', email: 'per@example.com' })
+    expect(theme).toEqual({ id: 'ny-2', code: 'K-1', name: 'Sikkerhet', description: 'IKT' })
+    expect(area).toEqual({ id: 'ny-3', code: 'K-2', name: 'Økonomi', horizon: '3-5' })
     expect(data().owners).toHaveLength(3)
     expect(data().themes).toHaveLength(2)
     expect(data().areas).toHaveLength(2)
@@ -236,14 +238,16 @@ describe('eiere, temaer og områder', () => {
 
   it('ser bort fra tom e-post og beskrivelse', async () => {
     const { store } = await setup()
-    expect(await store.createReference('owner', { name: 'Per', email: '' })).toEqual({
+    expect(await store.createReference('owner', { code: 'K-3', name: 'Per', email: '' })).toEqual({
       id: 'ny-1',
+      code: 'K-3',
       name: 'Per',
     })
     expect(
-      await store.createReference('area', { name: 'HR', description: ' ', horizon: '5+' }),
+      await store.createReference('area', { code: 'K-4', name: 'HR', description: ' ', horizon: '5+' }),
     ).toEqual({
       id: 'ny-2',
+      code: 'K-4',
       name: 'HR',
       horizon: '5+',
     })
@@ -251,11 +255,11 @@ describe('eiere, temaer og områder', () => {
 
   it('krever «Når?» på område (K25)', async () => {
     const { store, save } = await setup()
-    const missing = await rejection(store.createReference('area', { name: 'HR' } as never))
+    const missing = await rejection(store.createReference('area', { code: 'K-5', name: 'HR' } as never))
     expect(missing.fieldErrors).toEqual({ horizon: '«Når?» er påkrevd' })
 
     const invalid = await rejection(
-      store.createReference('area', { name: 'HR', horizon: '10+' } as never),
+      store.createReference('area', { code: 'K-6', name: 'HR', horizon: '10+' } as never),
     )
     expect(invalid.fieldErrors).toEqual({ horizon: '«Når?» er påkrevd' })
     expect(save).not.toHaveBeenCalled()
@@ -263,11 +267,11 @@ describe('eiere, temaer og områder', () => {
 
   it('avviser manglende navn og ugyldig e-post uten å lagre', async () => {
     const { store, save } = await setup()
-    expect((await rejection(store.createReference('theme', { name: '  ' }))).fieldErrors).toEqual({
+    expect((await rejection(store.createReference('theme', { code: 'K-7', name: '  ' }))).fieldErrors).toEqual({
       name: 'Navn er påkrevd',
     })
     expect(
-      (await rejection(store.createReference('owner', { name: 'Per', email: 'ikke-epost' })))
+      (await rejection(store.createReference('owner', { code: 'K-8', name: 'Per', email: 'ikke-epost' })))
         .fieldErrors,
     ).toEqual({ email: 'Ugyldig e-postadresse' })
     expect(save).not.toHaveBeenCalled()
@@ -275,7 +279,7 @@ describe('eiere, temaer og områder', () => {
 
   it('avviser navn som allerede er i bruk, uansett skrivemåte', async () => {
     const { store, save, data } = await setup()
-    const error = await rejection(store.createReference('owner', { name: ' kari  NORDMANN' }))
+    const error = await rejection(store.createReference('owner', { code: 'K-9', name: ' kari  NORDMANN' }))
 
     expect(error.fieldErrors).toEqual({ name: 'Navnet er allerede i bruk.' })
     expect(save).not.toHaveBeenCalled()
@@ -285,7 +289,7 @@ describe('eiere, temaer og områder', () => {
   it('tillater samme navn i ulike registre', async () => {
     const { store } = await setup()
     await expect(
-      store.createReference('area', { name: 'Leverandør', horizon: '0-3' }),
+      store.createReference('area', { code: 'K-10', name: 'Leverandør', horizon: '0-3' }),
     ).resolves.toMatchObject({
       name: 'Leverandør',
     })
@@ -294,25 +298,26 @@ describe('eiere, temaer og områder', () => {
   it('endrer element og lar det beholde sitt eget navn', async () => {
     const { store, data } = await setup()
     const updated = await store.updateReference('owner', 'o1', {
+      code: 'E-1',
       name: 'Kari Nordmann',
       email: 'kari@example.com',
     })
 
-    expect(updated).toEqual({ id: 'o1', name: 'Kari Nordmann', email: 'kari@example.com' })
+    expect(updated).toEqual({ id: 'o1', code: 'E-1', name: 'Kari Nordmann', email: 'kari@example.com' })
     expect(data().owners[0]).toEqual(updated)
     expect(data().owners).toHaveLength(2)
   })
 
   it('hindrer at et element får navnet til et annet', async () => {
     const { store, save } = await setup()
-    const error = await rejection(store.updateReference('owner', 'o2', { name: 'Kari Nordmann' }))
+    const error = await rejection(store.updateReference('owner', 'o2', { code: 'K-11', name: 'Kari Nordmann' }))
     expect(error.fieldErrors).toEqual({ name: 'Navnet er allerede i bruk.' })
     expect(save).not.toHaveBeenCalled()
   })
 
   it('avviser endring av element som ikke finnes', async () => {
     const { store } = await setup()
-    expect((await rejection(store.updateReference('theme', 'x', { name: 'Nytt' }))).message).toBe(
+    expect((await rejection(store.updateReference('theme', 'x', { code: 'K-12', name: 'Nytt' }))).message).toBe(
       'Temaet finnes ikke lenger.',
     )
   })
@@ -383,5 +388,82 @@ describe('lagring', () => {
     await store.replaceAll(seed())
     expect(store.getState()).toEqual({ status: 'ready', data: seed() })
     expect(await repository.load()).toEqual(seed())
+  })
+})
+
+describe('egne ID-er (spec 004, K47, K50)', () => {
+  function withCodes(): AppData {
+    const data = seed()
+    data.risks = [{ ...data.risks[0]!, code: 'R-007' }]
+    data.owners = [{ ...data.owners[0]!, code: 'E-1' }, data.owners[1]!]
+    return data
+  }
+
+  it('lagrer ID på ny risiko og ny eier', async () => {
+    const { store, data } = await setup()
+    await store.createRisk({ ...riskInput, code: ' R-008 ' })
+    await store.createReference('owner', { code: 'E-9', name: 'Per Hansen' })
+    expect(data().risks.at(-1)?.code).toBe('R-008')
+    expect(data().owners.at(-1)?.code).toBe('E-9')
+  })
+
+  it('avviser en risiko med ID som er i bruk, uansett skrivemåte, uten å lagre', async () => {
+    const { store, save } = await setup(withCodes())
+    const error = await rejection(store.createRisk({ ...riskInput, code: 'r-007 ' }))
+    expect(error.fieldErrors).toEqual({ code: 'ID-en er allerede i bruk.' })
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('avviser at en risiko endres til ID-en til en annen', async () => {
+    const data = withCodes()
+    data.risks.push({ ...data.risks[0]!, id: 'r2', code: 'R-008', title: 'Annen' })
+    const { store } = await setup(data)
+    const error = await rejection(store.updateRisk('r2', { ...riskInput, code: 'R-007' }))
+    expect(error.fieldErrors).toEqual({ code: 'ID-en er allerede i bruk.' })
+  })
+
+  it('lar en risiko beholde sin egen ID når den endres', async () => {
+    const { store, data } = await setup(withCodes())
+    await store.updateRisk('r1', { ...riskInput, code: 'R-007', title: 'Ny tittel' })
+    expect(data().risks[0]).toMatchObject({ code: 'R-007', title: 'Ny tittel' })
+  })
+
+  it('avviser eier med ID som er i bruk, og melder navn og ID samtidig', async () => {
+    const { store, save } = await setup(withCodes())
+    const error = await rejection(store.createReference('owner', { code: 'e-1', name: 'kari nordmann' }))
+    expect(error.fieldErrors).toEqual({
+      code: 'ID-en er allerede i bruk.',
+      name: 'Navnet er allerede i bruk.',
+    })
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('lar et element beholde sin egen ID, men ikke ta en annens', async () => {
+    const { store, data } = await setup(withCodes())
+    await store.updateReference('owner', 'o1', { code: 'E-1', name: 'Kari N.' })
+    expect(data().owners[0]).toMatchObject({ code: 'E-1', name: 'Kari N.' })
+    const error = await rejection(store.updateReference('owner', 'o2', { code: 'E-1', name: 'Ola Åsen' }))
+    expect(error.fieldErrors).toEqual({ code: 'ID-en er allerede i bruk.' })
+  })
+
+  it('tillater samme ID i ulike typer: eier «7» og risiko «7»', async () => {
+    const { store, data } = await setup()
+    await store.createReference('owner', { code: '7', name: 'Per Hansen' })
+    await store.createRisk({ ...riskInput, code: '7' })
+    await store.createReference('theme', { code: '7', name: 'Lønn' })
+    expect([data().owners.at(-1)?.code, data().risks.at(-1)?.code, data().themes.at(-1)?.code]).toEqual(['7', '7', '7'])
+  })
+
+  it('avviser ID på mer enn 20 tegn (K48)', async () => {
+    const { store } = await setup()
+    const error = await rejection(store.createRisk({ ...riskInput, code: 'x'.repeat(21) }))
+    expect(error.fieldErrors).toEqual({ code: 'ID kan være høyst 20 tegn' })
+  })
+
+  it('beholder koblingene når en eier får ny ID', async () => {
+    const { store, data } = await setup(withCodes())
+    await store.updateReference('owner', 'o1', { code: 'E-01', name: 'Kari Nordmann' })
+    expect(data().risks[0]?.ownerId).toBe('o1')
+    expect(data().owners[0]?.code).toBe('E-01')
   })
 })

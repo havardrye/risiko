@@ -6,7 +6,7 @@ import { useDataState, useDataStore, useOwners, useRisks } from './dataContext.t
 import { DataStore } from './dataStore.ts'
 
 const data: AppData = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   owners: [{ id: 'o1', name: 'Kari Nordmann' }],
   themes: [{ id: 't1', name: 'Leverandør' }],
   areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
@@ -53,6 +53,7 @@ describe('DataProvider', () => {
 
     await act(async () => {
       await store.createRisk({
+        code: 'R-1',
         title: 'Brann',
         type: 'threat',
         ownerId: 'o1',

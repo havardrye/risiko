@@ -8,12 +8,13 @@ const CREATED = '2026-11-01T08:00:00.000Z'
 function sample(): AppData {
   return {
     ...emptyAppData(),
-    owners: [{ id: 'o1', name: 'Kari Nordmann' }],
-    themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
+    owners: [{ id: 'o1', code: 'E-1', name: 'Kari Nordmann' }],
+    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør' }],
+    areas: [{ id: 'a1', code: 'O-1', name: 'IT', horizon: '0-3' }],
     risks: [
       {
         id: 'r1',
+        code: 'R-1',
         title: 'Leverandør går konkurs',
         type: 'threat',
         ownerId: 'o1',
@@ -64,7 +65,12 @@ describe('importExcel (K26–K30)', { timeout: 20_000 }, () => {
 
   it(`viser de første ${MAX_SHOWN_ERRORS} feilene og oppsummerer resten`, async () => {
     const data = sample()
-    data.risks = Array.from({ length: 60 }, (_, index) => ({ ...sample().risks[0], id: `r${index}`, ownerId: 'x' }))
+    data.risks = Array.from({ length: 60 }, (_, index) => ({
+      ...sample().risks[0],
+      id: `r${index}`,
+      code: `R-${index}`,
+      ownerId: 'x',
+    }))
     const result = await importExcel(await bytesOf(data))
     expect(result.ok).toBe(false)
     if (result.ok) return

@@ -27,6 +27,7 @@ describe('Excel-formatet (K26)', () => {
 
   it('har kolonnene for Eiere fra spec-en', () => {
     expect(described(OWNER_SHEET)).toEqual([
+      ['ID', true],
       ['Navn', true],
       ['E-post', false],
     ])
@@ -34,6 +35,7 @@ describe('Excel-formatet (K26)', () => {
 
   it('har kolonnene for Temaer fra spec-en', () => {
     expect(described(THEME_SHEET)).toEqual([
+      ['ID', true],
       ['Navn', true],
       ['Beskrivelse', false],
     ])
@@ -41,6 +43,7 @@ describe('Excel-formatet (K26)', () => {
 
   it('har kolonnene for Områder fra spec-en', () => {
     expect(described(AREA_SHEET)).toEqual([
+      ['ID', true],
       ['Navn', true],
       ['Når?', true],
       ['Beskrivelse', false],
@@ -49,6 +52,7 @@ describe('Excel-formatet (K26)', () => {
 
   it('har kolonnene for Risikoer fra spec-en', () => {
     expect(described(RISK_SHEET)).toEqual([
+      ['ID', true],
       ['Tittel', true],
       ['Beskrivelse', false],
       ['Type', true],
@@ -83,8 +87,8 @@ describe('Excel-formatet (K26)', () => {
 
 describe('findColumns', () => {
   it('finner kolonnene i vilkårlig rekkefølge', () => {
-    const { indexes, missing } = findColumns(['E-post', 'Navn'], OWNER_SHEET)
-    expect(indexes).toEqual({ name: 1, email: 0 })
+    const { indexes, missing } = findColumns(['E-post', 'Navn', 'ID'], OWNER_SHEET)
+    expect(indexes).toEqual({ code: 2, name: 1, email: 0 })
     expect(missing).toEqual([])
   })
 
@@ -97,20 +101,28 @@ describe('findColumns', () => {
   })
 
   it('ignorerer ukjente kolonner', () => {
-    const lookup = findColumns(['Notat', 'Navn', 'Score'], THEME_SHEET)
-    expect(lookup.indexes).toEqual({ name: 1 })
+    const lookup = findColumns(['Notat', 'ID', 'Navn', 'Score'], THEME_SHEET)
+    expect(lookup.indexes).toEqual({ code: 1, name: 2 })
     expect(lookup.missing).toEqual([])
   })
 
   it('melder påkrevde kolonner som mangler, men ikke valgfrie', () => {
     const { missing } = findColumns(['Navn', 'Beskrivelse'], AREA_SHEET)
-    expect(missing.map((column) => column.header)).toEqual(['Når?'])
+    expect(missing.map((column) => column.header)).toEqual(['ID', 'Når?'])
   })
 
   it('melder kolonner som står to ganger', () => {
     const { indexes, duplicates } = findColumns(['Navn', 'navn'], OWNER_SHEET)
     expect(duplicates.map((column) => column.header)).toEqual(['Navn'])
     expect(indexes.name).toBeUndefined()
+  })
+})
+
+describe('ID-kolonnen (spec 004, K51)', () => {
+  it('står først og er påkrevd i alle fire faner', () => {
+    for (const sheet of DATA_SHEETS) {
+      expect(sheet.columns[0]).toMatchObject({ key: 'code', header: 'ID', required: true })
+    }
   })
 })
 

@@ -1,21 +1,22 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   countRisksBy,
   REFERENCE_LIST,
   risksReferencing,
   type ReferenceKind,
 } from '../../domain/rules.ts'
-import type { Id, Risk } from '../../domain/schema.ts'
+import { CODE_MAX_LENGTH, type Id, type Risk } from '../../domain/schema.ts'
 import { useAppData, useDataStore } from '../../state/dataContext.ts'
 import { DataError } from '../../state/dataStore.ts'
-import { ROUTES } from '../routes.ts'
+import { EDIT_REFERENCE_PARAM, ROUTES } from '../routes.ts'
 import { nextSetupStep } from '../setupSteps.ts'
 import { useFocusRequest } from '../useFocusRequest.ts'
 import { usePageTitle } from '../usePageTitle.ts'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { Dialog, DialogActions } from './Dialog.tsx'
 import { FormField } from './FormField.tsx'
+import { CodeText } from './CodeText.tsx'
 import { useFormErrors } from './useFormErrors.ts'
 import styles from './ReferenceRegister.module.css'
 
@@ -45,12 +46,14 @@ export interface ReferenceRegisterConfig {
   createLabel: string
   /** Vises når registeret er tomt. */
   emptyText: string
-  /** Feltene etter navn, i den rekkefølgen de vises i tabell og skjema. */
+  /** Feltene etter ID og navn, i den rekkefølgen de vises i tabell og skjema. */
   fields: readonly ExtraField[]
 }
 
 interface ReferenceItem {
   id: Id
+  /** Brukerens ID (spec 004). Mangler på elementer fra før endringen. */
+  code?: string | undefined
   name: string
   email?: string | undefined
   description?: string | undefined
@@ -80,8 +83,9 @@ const ROUTE_FOR_KIND: Record<ReferenceKind, { path: string }> = {
 }
 
 /**
- * Register over eiere, temaer eller områder (spec K11–K18, K25). De tre
- * registrene oppfører seg likt og skiller seg bare i tekster og feltene etter navn.
+ * Register over eiere, temaer eller områder (spec K11–K18, K25, og ID fra
+ * spec 004). De tre registrene oppfører seg likt og skiller seg bare i
+ * tekster og feltene etter navn.
  */
 export function ReferenceRegister({ config }: { config: ReferenceRegisterConfig }) {
   usePageTitle(config.title)
@@ -102,6 +106,28 @@ export function ReferenceRegister({ config }: { config: ReferenceRegisterConfig 
 
   const close = () => setDialog(CLOSED)
   const [headingRef, focusHeading] = useFocusRequest<HTMLHeadingElement>()
+
+  // En lenke som «#/eiere?rediger=o1» (f.eks. fra varselet om manglende ID)
+  // åpner elementet for endring. Samme mønster som «?risiko=» i registeret.
+  const [params, setParams] = useSearchParams()
+  const editId = params.get(EDIT_REFERENCE_PARAM)
+  const [handledEditId, setHandledEditId] = useState<string | null>(null)
+  if (editId !== handledEditId) {
+    setHandledEditId(editId)
+    const item = editId ? items.find((candidate) => candidate.id === editId) : undefined
+    if (item) setDialog({ type: 'edit', item })
+  }
+  useEffect(() => {
+    if (!editId) return
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current)
+        next.delete(EDIT_REFERENCE_PARAM)
+        return next
+      },
+      { replace: true },
+    )
+  }, [editId, setParams])
 
   function requestDelete(item: ReferenceItem) {
     setDeleteError(undefined)
@@ -160,6 +186,7 @@ export function ReferenceRegister({ config }: { config: ReferenceRegisterConfig 
           <table className="table">
             <thead>
               <tr>
+                <th scope="col">ID</th>
                 <th scope="col">Navn</th>
                 {config.fields.map((field) => (
                   <th key={field.key} scope="col">
@@ -177,6 +204,9 @@ export function ReferenceRegister({ config }: { config: ReferenceRegisterConfig 
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
+                  <td className="nowrap">
+                    <CodeText code={item.code} />
+                  </td>
                   <th scope="row">{item.name}</th>
                   {config.fields.map((field) => (
                     // Korte faste verdier, som «0 - 3 år», skal ikke brytes over to linjer.
@@ -278,7 +308,7 @@ function ReferenceForm({ config, item, onDone }: ReferenceFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const { errors, showErrors, clearError } = useFormErrors(formRef)
   const [values, setValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = { name: item?.name ?? '' }
+    const initial: Record<string, string> = { code: item?.code ?? '', name: item?.name ?? '' }
     for (const field of config.fields) initial[field.key] = item?.[field.key] ?? ''
     return initial
   })
@@ -314,6 +344,21 @@ function ReferenceForm({ config, item, onDone }: ReferenceFormProps) {
 
   return (
     <form ref={formRef} onSubmit={(event) => void submit(event)} noValidate>
+      <FormField label="ID" required error={errors.code}>
+        {(control) => (
+          <input
+            {...control}
+            type="text"
+            className={styles.codeInput}
+            value={values.code}
+            maxLength={CODE_MAX_LENGTH}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={change('code')}
+          />
+        )}
+      </FormField>
+
       <FormField label="Navn" required error={errors.name}>
         {(control) => (
           <input

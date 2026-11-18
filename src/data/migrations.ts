@@ -21,8 +21,18 @@ function from1to2(data: Raw): Raw {
   return { ...data, schemaVersion: 2, areas }
 }
 
+/**
+ * Versjon 2 → 3: brukerens ID (`code`, spec 004). Feltet er valgfritt, så
+ * dataene endres ikke (beslutning 5). Versjonen løftes likevel, slik at en
+ * eldre utgave av appen avviser data med ID i stedet for å fjerne ID-ene.
+ */
+function from2to3(data: Raw): Raw {
+  return { ...data, schemaVersion: 3 }
+}
+
 const MIGRATIONS: Record<number, (data: Raw) => Raw> = {
   1: from1to2,
+  2: from2to3,
 }
 
 /** Versjonene appen kan lese: alle med migrering, pluss gjeldende. */

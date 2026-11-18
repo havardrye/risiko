@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ChangeEvent } from 'react'
+import { useId, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { excelTemplate, exportExcel, importExcel, isXlsx } from '../../data/excel/index.ts'
 import { XLSX_MIME_TYPE } from '../../data/excel/writeXlsx.ts'
 import {
@@ -8,6 +8,7 @@ import {
   TEMPLATE_FILE_NAME,
   type DataSummary,
 } from '../../data/exportImport.ts'
+import { countMissingCodes, findMissingCodes } from '../../domain/rules.ts'
 import type { AppData } from '../../domain/schema.ts'
 import { useAppData, useDataStore } from '../../state/dataContext.ts'
 import { downloadBlob } from '../download.ts'
@@ -79,6 +80,8 @@ export function DataMenu({ status, onStatus: setStatus, onExport }: DataMenuProp
   /** Hindrer at et dobbeltklikk lager to filer. Knappen sperres ikke, så fokus kan gå tilbake til den. */
   const exporting = useRef(false)
   const choiceIdPrefix = useId()
+  // En Excel-fil med tomme ID-er kan ikke importeres igjen (spec 004, K54).
+  const missingCodes = useMemo(() => countMissingCodes(findMissingCodes(data)), [data])
 
   async function exportAs(kind: ExportKind) {
     setChoosingExport(false)
@@ -195,7 +198,11 @@ export function DataMenu({ status, onStatus: setStatus, onExport }: DataMenuProp
               <button
                 type="button"
                 className={`button ${styles.choice}`}
-                aria-describedby={`${choiceIdPrefix}-${choice.kind}`}
+                aria-describedby={
+                  choice.kind === 'excel' && missingCodes > 0
+                    ? `${choiceIdPrefix}-${choice.kind} ${choiceIdPrefix}-missing`
+                    : `${choiceIdPrefix}-${choice.kind}`
+                }
                 onClick={() => void exportAs(choice.kind)}
               >
                 {choice.label}
@@ -203,6 +210,13 @@ export function DataMenu({ status, onStatus: setStatus, onExport }: DataMenuProp
               <p id={`${choiceIdPrefix}-${choice.kind}`} className={styles.choiceDescription}>
                 {choice.description}
               </p>
+              {choice.kind === 'excel' && missingCodes > 0 && (
+                <p id={`${choiceIdPrefix}-missing`} className={styles.choiceWarning}>
+                  {missingCodes === 1
+                    ? '1 element mangler ID. Filen kan ikke importeres igjen før det har fått det.'
+                    : `${missingCodes} elementer mangler ID. Filen kan ikke importeres igjen før de har fått det.`}
+                </p>
+              )}
             </li>
           ))}
         </ul>

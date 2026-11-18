@@ -4,6 +4,7 @@ import { RISK_TYPE_LABELS } from '../../domain/scales.ts'
 import type { Id, Risk } from '../../domain/schema.ts'
 import { level, score } from '../../domain/scoring.ts'
 import { useAppData } from '../../state/dataContext.ts'
+import { CodeText } from './CodeText.tsx'
 import { LevelBadge } from './LevelBadge.tsx'
 import styles from './RiskTable.module.css'
 
@@ -17,9 +18,18 @@ interface RiskTableProps {
 
 /** Retningen en kolonne sorteres i ved første klikk: høyest og nyest først, tittel A–Å. */
 const FIRST_DIRECTION: Record<SortKey, RiskSort['direction']> = {
+  code: 'asc',
   score: 'desc',
   updatedAt: 'desc',
   title: 'asc',
+}
+
+/** Kolonnens navn i den skjulte tabelltittelen, f.eks. «sortert etter ID». */
+const SORT_NAMES: Record<SortKey, string> = {
+  code: 'ID',
+  score: 'score',
+  title: 'tittel',
+  updatedAt: 'sist endret',
 }
 
 const DATE_FORMAT = new Intl.DateTimeFormat('nb-NO', { dateStyle: 'short' })
@@ -70,11 +80,12 @@ export function RiskTable({ risks, sort, onSortChange, onEdit, onDelete }: RiskT
       <table className="table">
         <caption className="visually-hidden">
           Risikoer, sortert etter{' '}
-          {sort.key === 'score' ? 'score' : sort.key === 'title' ? 'tittel' : 'sist endret'},{' '}
+          {SORT_NAMES[sort.key]},{' '}
           {sort.direction === 'asc' ? 'stigende' : 'synkende'}
         </caption>
         <thead>
           <tr>
+            <SortHeader {...sortProps} sortKey="code" label="ID" />
             <SortHeader {...sortProps} sortKey="title" label="Tittel" />
             <th scope="col">Type</th>
             <th scope="col">Eier</th>
@@ -91,6 +102,9 @@ export function RiskTable({ risks, sort, onSortChange, onEdit, onDelete }: RiskT
         <tbody>
           {sorted.map((risk) => (
             <tr key={risk.id}>
+              <td className="nowrap">
+                <CodeText code={risk.code} />
+              </td>
               <th scope="row" className={styles.title}>
                 {risk.title}
               </th>

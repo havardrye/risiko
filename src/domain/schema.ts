@@ -8,8 +8,11 @@ import { z } from 'zod'
  * legger til det systemet setter selv (id og datoer).
  */
 
-/** Versjon 2 la til «Når?» på områder (K25). Eldre data migreres i data/migrations.ts. */
-export const SCHEMA_VERSION = 2
+/**
+ * Versjon 2 la til «Når?» på områder (K25). Versjon 3 la til brukerens ID
+ * (`code`, spec 004). Eldre data migreres i data/migrations.ts.
+ */
+export const SCHEMA_VERSION = 3
 
 const idSchema = z.string().min(1)
 
@@ -18,29 +21,48 @@ const requiredText = (message: string) => z.string(message).trim().min(1, messag
 
 const optionalText = z.string().trim().optional()
 
+/**
+ * Brukerens egen ID, f.eks. «R-007» (spec 004, K47, K48). Den interne `id`
+ * brukes fortsatt til koblinger; `code` kan derfor endres fritt.
+ */
+export const CODE_MAX_LENGTH = 20
+export const codeSchema = requiredText('ID er påkrevd').max(
+  CODE_MAX_LENGTH,
+  `ID kan være høyst ${CODE_MAX_LENGTH} tegn`,
+)
+
+/**
+ * `code` er påkrevd i inndata (skjemaene i appen og Excel-import) og valgfri
+ * i lagrede data: elementer fra før spec 004 kan mangle ID (beslutning 5).
+ */
+const storedCode = { code: codeSchema.optional() }
+
 // --- Referanseregistre ---
 
 export const ownerInputSchema = z.object({
+  code: codeSchema,
   name: requiredText('Navn er påkrevd'),
   email: z.email('Ugyldig e-postadresse').optional(),
 })
-export const ownerSchema = ownerInputSchema.extend({ id: idSchema })
+export const ownerSchema = ownerInputSchema.extend({ ...storedCode, id: idSchema })
 
 export const themeInputSchema = z.object({
+  code: codeSchema,
   name: requiredText('Navn er påkrevd'),
   description: optionalText,
 })
-export const themeSchema = themeInputSchema.extend({ id: idSchema })
+export const themeSchema = themeInputSchema.extend({ ...storedCode, id: idSchema })
 
 /** «Når?» på et område (K25). Visningstekstene ligger i domain/scales.ts. */
 export const horizonSchema = z.enum(['0-3', '3-5', '5+'], '«Når?» er påkrevd')
 
 export const areaInputSchema = z.object({
+  code: codeSchema,
   name: requiredText('Navn er påkrevd'),
   description: optionalText,
   horizon: horizonSchema,
 })
-export const areaSchema = areaInputSchema.extend({ id: idSchema })
+export const areaSchema = areaInputSchema.extend({ ...storedCode, id: idSchema })
 
 // --- Risiko ---
 
@@ -52,6 +74,7 @@ export const ratingSchema = z.union(
 export const riskTypeSchema = z.enum(['threat', 'opportunity'], 'Velg trussel eller mulighet')
 
 export const riskInputSchema = z.object({
+  code: codeSchema,
   title: requiredText('Tittel er påkrevd'),
   description: optionalText,
   type: riskTypeSchema,
@@ -63,6 +86,7 @@ export const riskInputSchema = z.object({
 })
 
 export const riskSchema = riskInputSchema.extend({
+  ...storedCode,
   id: idSchema,
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

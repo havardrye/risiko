@@ -5,7 +5,7 @@ import {
   RISK_TYPE_LABELS,
   RISK_TYPES,
 } from '../../domain/scales.ts'
-import type { Rating, Risk, RiskInput, RiskType } from '../../domain/schema.ts'
+import { CODE_MAX_LENGTH, type Rating, type Risk, type RiskInput, type RiskType } from '../../domain/schema.ts'
 import { level, RATINGS, score } from '../../domain/scoring.ts'
 import { useAppData, useDataStore } from '../../state/dataContext.ts'
 import { DataError } from '../../state/dataStore.ts'
@@ -43,6 +43,7 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
 
   const { errors, showErrors, clearError } = useFormErrors(formRef)
   const [values, setValues] = useState({
+    code: risk?.code ?? '',
     title: risk?.title ?? '',
     description: risk?.description ?? '',
     ownerId: risk?.ownerId ?? '',
@@ -98,17 +99,33 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
 
   return (
     <form ref={formRef} onSubmit={(event) => void submit(event)} noValidate>
-      <FormField label="Tittel" required error={errors.title}>
-        {(control) => (
-          <input
-            {...control}
-            type="text"
-            value={values.title}
-            autoComplete="off"
-            onChange={change('title')}
-          />
-        )}
-      </FormField>
+      <div className={styles.titleRow}>
+        <FormField label="ID" required error={errors.code}>
+          {(control) => (
+            <input
+              {...control}
+              type="text"
+              value={values.code}
+              maxLength={CODE_MAX_LENGTH}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={change('code')}
+            />
+          )}
+        </FormField>
+
+        <FormField label="Tittel" required error={errors.title}>
+          {(control) => (
+            <input
+              {...control}
+              type="text"
+              value={values.title}
+              autoComplete="off"
+              onChange={change('title')}
+            />
+          )}
+        </FormField>
+      </div>
 
       <FormField label="Beskrivelse" error={errors.description}>
         {(control) => (

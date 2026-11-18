@@ -63,3 +63,11 @@
   font-size: 0.875rem;
   color: var(--color-text-muted);
 }
+
+/* Advarsel under Excel-valget når noe mangler ID (spec 004, K54). */
+.choiceWarning {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-danger);
+}

@@ -25,3 +25,8 @@
   border-radius: var(--radius);
   background: var(--color-surface);
 }
+
+/* ID-en er kort (høyst 20 tegn, spec 004); feltet trenger ikke full bredde. */
+.codeInput {
+  max-width: 12rem;
+}

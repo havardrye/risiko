@@ -42,7 +42,7 @@ function risk(overrides: Partial<Risk> & Pick<Risk, 'id' | 'title'>): Risk {
 
 function seed(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [{ id: 'o1', name: 'Kari Nordmann', email: 'kari@example.com' }],
     themes: [{ id: 't1', name: 'Leverandør', description: 'Avhengighet av eksterne' }],
     areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],

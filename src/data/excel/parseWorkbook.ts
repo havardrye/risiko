@@ -90,6 +90,8 @@ export interface ParsedRow<T> {
 
 /** En risiko slik den står i filen: eier, tema og område er navn, ikke id-er. */
 export interface RiskRow {
+  /** Brukerens ID (spec 004). */
+  code: string
   title: string
   description?: string
   type: RiskType
@@ -251,15 +253,15 @@ function isProblem(cell: CellValue | undefined): cell is { problem: string } {
 
 /** Risikoer i filen: som appens skjema, men med navn i stedet for id-er. */
 const riskRowSchema = riskInputSchema
-  .pick({ title: true, description: true, type: true, likelihood: true, consequence: true })
+  .pick({ code: true, title: true, description: true, type: true, likelihood: true, consequence: true })
   .extend({ owner: z.string(), theme: z.string(), area: z.string() })
 
 const ratingConverter: Converter = interpretRating
 const textOnly = (value: string | number) => ({ ok: true as const, value: String(value) })
 
-const OWNERS: RowSchema<'name' | 'email'> = { sheet: OWNER_SHEET, convert: {}, schema: ownerInputSchema }
-const THEMES: RowSchema<'name' | 'description'> = { sheet: THEME_SHEET, convert: {}, schema: themeInputSchema }
-const AREAS: RowSchema<'name' | 'horizon' | 'description'> = {
+const OWNERS: RowSchema<'code' | 'name' | 'email'> = { sheet: OWNER_SHEET, convert: {}, schema: ownerInputSchema }
+const THEMES: RowSchema<'code' | 'name' | 'description'> = { sheet: THEME_SHEET, convert: {}, schema: themeInputSchema }
+const AREAS: RowSchema<'code' | 'name' | 'horizon' | 'description'> = {
   sheet: AREA_SHEET,
   convert: { horizon: (value) => interpretHorizon(String(value)) },
   schema: areaInputSchema,
@@ -285,9 +287,9 @@ const RISKS: RowSchema<keyof RiskRow> = {
 export function parseSheets(workbook: WorkbookRows): ParsedSheets {
   const errors: CellError[] = []
   const risks = parseSheet<keyof RiskRow, RiskRow>(workbook, RISKS, errors)
-  const owners = parseSheet<'name' | 'email', OwnerInput>(workbook, OWNERS, errors)
-  const themes = parseSheet<'name' | 'description', ThemeInput>(workbook, THEMES, errors)
-  const areas = parseSheet<'name' | 'horizon' | 'description', AreaInput>(workbook, AREAS, errors)
+  const owners = parseSheet<'code' | 'name' | 'email', OwnerInput>(workbook, OWNERS, errors)
+  const themes = parseSheet<'code' | 'name' | 'description', ThemeInput>(workbook, THEMES, errors)
+  const areas = parseSheet<'code' | 'name' | 'horizon' | 'description', AreaInput>(workbook, AREAS, errors)
   const rejected = ({ sheetRead, names }: RejectedRows): RejectedRows => ({ sheetRead, names })
   return {
     risks: risks.rows,
@@ -320,29 +322,38 @@ function rowList(rows: readonly number[]): string {
   return `rad ${joined}`
 }
 
-/** Like navn i samme fane gir én feil per rad, med henvisning til de andre (K29). */
-function findDuplicateNames(
+/**
+ * Like verdier i samme kolonne i en fane gir én feil per rad, med henvisning
+ * til de andre (K29 for navn, spec 004 K53 for ID). Sammenlignes som navn.
+ */
+function findDuplicates<K extends string>(
   sheetName: string,
-  rows: readonly ParsedRow<{ name: string }>[],
+  rows: readonly ParsedRow<Record<K, string>>[],
+  key: K,
+  column: string,
+  rule: string,
   errors: CellError[],
 ): void {
-  const byName = new Map<string, number[]>()
+  const byValue = new Map<string, number[]>()
   for (const { rowNumber, value } of rows) {
-    const key = normalizeName(value.name)
-    byName.set(key, [...(byName.get(key) ?? []), rowNumber])
+    const normalized = normalizeName(value[key])
+    byValue.set(normalized, [...(byValue.get(normalized) ?? []), rowNumber])
   }
   for (const { rowNumber, value } of rows) {
-    const others = (byName.get(normalizeName(value.name)) ?? []).filter((row) => row !== rowNumber)
+    const others = (byValue.get(normalizeName(value[key])) ?? []).filter((row) => row !== rowNumber)
     if (others.length > 0) {
       errors.push({
         sheet: sheetName,
         row: rowNumber,
-        column: 'Navn',
-        message: `«${value.name}» står også på ${rowList(others)}. Navn må være unike.`,
+        column,
+        message: `«${value[key]}» står også på ${rowList(others)}. ${rule}`,
       })
     }
   }
 }
+
+const NAMES_UNIQUE = 'Navn må være unike.'
+const CODES_UNIQUE = 'ID må være unik.'
 
 const REFERENCES = [
   { key: 'owner', sheet: 'owners', column: 'Eier', sheetName: OWNER_SHEET.name },
@@ -360,9 +371,15 @@ export function parseWorkbook(workbook: WorkbookRows, options: ParseOptions = {}
   const sheets = parseSheets(workbook)
   const errors = [...sheets.errors]
 
-  findDuplicateNames(OWNER_SHEET.name, sheets.owners, errors)
-  findDuplicateNames(THEME_SHEET.name, sheets.themes, errors)
-  findDuplicateNames(AREA_SHEET.name, sheets.areas, errors)
+  findDuplicates(RISK_SHEET.name, sheets.risks, 'code', 'ID', CODES_UNIQUE, errors)
+  for (const [sheet, rows] of [
+    [OWNER_SHEET.name, sheets.owners],
+    [THEME_SHEET.name, sheets.themes],
+    [AREA_SHEET.name, sheets.areas],
+  ] as const) {
+    findDuplicates(sheet, rows, 'code', 'ID', CODES_UNIQUE, errors)
+    findDuplicates(sheet, rows, 'name', 'Navn', NAMES_UNIQUE, errors)
+  }
 
   const owners: Owner[] = sheets.owners.map(({ value }) => ({ id: newId(), ...value }))
   const themes: Theme[] = sheets.themes.map(({ value }) => ({ id: newId(), ...value }))

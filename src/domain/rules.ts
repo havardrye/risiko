@@ -1,4 +1,4 @@
-import type { AppData, Id, Risk } from './schema.ts'
+import type { AppData, Area, Id, Owner, Risk, Theme } from './schema.ts'
 
 /**
  * Regler som gjelder på tvers av elementer (spec K12, K13, K15–K18, K20).
@@ -49,6 +49,65 @@ export function isNameTaken(
   return items.some((item) => item.id !== excludeId && normalizeName(item.name) === wanted)
 }
 
+// --- Egne ID-er (spec 004, K48, K54) ---
+
+/**
+ * Sant hvis et annet element av samme type allerede har ID-en. Samme regel
+ * som for navn: store/små bokstaver og overflødige mellomrom teller ikke.
+ * Elementer uten ID (fra før spec 004) kolliderer aldri.
+ */
+export function isCodeTaken(
+  items: readonly { id: Id; code?: string }[],
+  code: string,
+  excludeId?: Id,
+): boolean {
+  const wanted = normalizeName(code)
+  return items.some(
+    (item) => item.id !== excludeId && item.code !== undefined && normalizeName(item.code) === wanted,
+  )
+}
+
+/** Elementene som mangler ID, per type (K54). */
+export interface MissingCodes {
+  risks: Risk[]
+  owners: Owner[]
+  themes: Theme[]
+  areas: Area[]
+}
+
+const hasNoCode = (item: { code?: string }) => item.code === undefined || item.code.trim() === ''
+
+export function findMissingCodes(data: AppData): MissingCodes {
+  return {
+    risks: data.risks.filter(hasNoCode),
+    owners: data.owners.filter(hasNoCode),
+    themes: data.themes.filter(hasNoCode),
+    areas: data.areas.filter(hasNoCode),
+  }
+}
+
+/** Antall elementer uten ID i alt. */
+export function countMissingCodes(missing: MissingCodes): number {
+  return missing.risks.length + missing.owners.length + missing.themes.length + missing.areas.length
+}
+
+/** Like ID-er innen én type gir én melding per ID som går igjen. */
+function duplicateCodeErrors(items: readonly { code?: string }[], label: string): string[] {
+  const seen = new Set<string>()
+  const reported = new Set<string>()
+  const errors: string[] = []
+  for (const { code } of items) {
+    if (code === undefined) continue
+    const key = normalizeName(code)
+    if (seen.has(key) && !reported.has(key)) {
+      errors.push(`ID-en «${code}» er brukt flere ganger (${label}).`)
+      reported.add(key)
+    }
+    seen.add(key)
+  }
+  return errors
+}
+
 // --- Slettesperre (K13, K16, K18) ---
 
 /** Risikoene som bruker elementet. Tom liste betyr at det kan slettes. */
@@ -70,8 +129,9 @@ export function countRisksBy(risks: readonly Risk[], kind: ReferenceKind): Map<I
 // --- Dataintegritet (K20, og ved lesing fra lagring) ---
 
 /**
- * Sjekker det skjemaet ikke kan se: at ID-er er unike, at navn er unike
- * innen hvert register, og at alle risikoer peker på elementer som finnes.
+ * Sjekker det skjemaet ikke kan se: at interne id-er er unike, at navn og
+ * brukerens ID-er er unike innen hvert register, og at alle risikoer peker
+ * på elementer som finnes.
  * Returnerer feilmeldinger på norsk; tom liste betyr at dataene henger sammen.
  */
 export function findIntegrityErrors(data: AppData): string[] {
@@ -84,13 +144,14 @@ export function findIntegrityErrors(data: AppData): string[] {
     const seenIds = new Set<Id>()
     const seenNames = new Set<string>()
     for (const item of items) {
-      if (seenIds.has(item.id)) errors.push(`Flere ${label}-oppføringer har ID «${item.id}».`)
+      if (seenIds.has(item.id)) errors.push(`Flere ${label}-oppføringer har intern id «${item.id}».`)
       seenIds.add(item.id)
 
       const name = normalizeName(item.name)
       if (seenNames.has(name)) errors.push(`Navnet «${item.name}» er brukt flere ganger (${label}).`)
       seenNames.add(name)
     }
+    errors.push(...duplicateCodeErrors(items, label))
 
     const field = REFERENCE_FIELD[kind]
     for (const risk of data.risks) {
@@ -102,9 +163,10 @@ export function findIntegrityErrors(data: AppData): string[] {
 
   const seenRiskIds = new Set<Id>()
   for (const risk of data.risks) {
-    if (seenRiskIds.has(risk.id)) errors.push(`Flere risikoer har ID «${risk.id}».`)
+    if (seenRiskIds.has(risk.id)) errors.push(`Flere risikoer har intern id «${risk.id}».`)
     seenRiskIds.add(risk.id)
   }
+  errors.push(...duplicateCodeErrors(data.risks, 'risiko'))
 
   return errors
 }

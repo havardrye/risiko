@@ -30,25 +30,31 @@ export interface SheetSpec<K extends string = string> {
   columns: readonly ColumnSpec<K>[]
 }
 
-export const OWNER_SHEET: SheetSpec<'name' | 'email'> = {
+/** Brukerens ID, først i alle faner (spec 004, K51). */
+const CODE_COLUMN = { key: 'code', header: 'ID', required: true, width: 12 } as const
+
+export const OWNER_SHEET: SheetSpec<'code' | 'name' | 'email'> = {
   name: 'Eiere',
   columns: [
+    CODE_COLUMN,
     { key: 'name', header: 'Navn', required: true, width: 30 },
     { key: 'email', header: 'E-post', required: false, width: 34 },
   ],
 }
 
-export const THEME_SHEET: SheetSpec<'name' | 'description'> = {
+export const THEME_SHEET: SheetSpec<'code' | 'name' | 'description'> = {
   name: 'Temaer',
   columns: [
+    CODE_COLUMN,
     { key: 'name', header: 'Navn', required: true, width: 30 },
     { key: 'description', header: 'Beskrivelse', required: false, width: 60 },
   ],
 }
 
-export const AREA_SHEET: SheetSpec<'name' | 'horizon' | 'description'> = {
+export const AREA_SHEET: SheetSpec<'code' | 'name' | 'horizon' | 'description'> = {
   name: 'Områder',
   columns: [
+    CODE_COLUMN,
     { key: 'name', header: 'Navn', required: true, width: 30 },
     { key: 'horizon', header: 'Når?', required: true, choices: HORIZON_CHOICES, width: 12 },
     { key: 'description', header: 'Beskrivelse', required: false, width: 60 },
@@ -56,6 +62,7 @@ export const AREA_SHEET: SheetSpec<'name' | 'horizon' | 'description'> = {
 }
 
 export type RiskColumnKey =
+  | 'code'
   | 'title'
   | 'description'
   | 'type'
@@ -68,6 +75,7 @@ export type RiskColumnKey =
 export const RISK_SHEET: SheetSpec<RiskColumnKey> = {
   name: 'Risikoer',
   columns: [
+    CODE_COLUMN,
     { key: 'title', header: 'Tittel', required: true, width: 40 },
     { key: 'description', header: 'Beskrivelse', required: false, width: 60 },
     { key: 'type', header: 'Type', required: true, choices: RISK_TYPE_CHOICES, width: 12 },

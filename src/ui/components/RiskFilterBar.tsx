@@ -40,7 +40,7 @@ export function RiskFilterBar({ state }: RiskFilterBarProps) {
         <input
           id={`${id}-search`}
           type="search"
-          placeholder="Tittel eller beskrivelse"
+          placeholder="ID, tittel eller beskrivelse"
           value={filter.search ?? ''}
           onChange={(event) => setFilter({ search: event.target.value })}
         />

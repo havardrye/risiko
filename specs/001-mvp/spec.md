@@ -104,6 +104,7 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
 - **K23** Appen viser et synlig, men diskret varsel om at data lagres kun i denne nettleseren, med snarvei til eksport.
 
 Import og eksport med Excel er beskrevet i [002-excel-import](../002-excel-import/spec.md) (K26–K35).
+Egne ID-er på risikoer, eiere, temaer og områder er beskrevet i [004-egne-id-er](../004-egne-id-er/spec.md) (K47–K55).
 
 ## Avklarte beslutninger
 1. **Deling:** MVP bruker lokal lagring per nettleser. Delt backend er en senere spec. Derfor skal lagring ligge bak `Repository`-grensesnittet (se constitution). Eksport/import (K20) er eneste måte å dele på i MVP.

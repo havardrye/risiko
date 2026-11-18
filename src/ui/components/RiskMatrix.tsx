@@ -9,6 +9,7 @@ import {
 import type { Risk } from '../../domain/schema.ts'
 import { cellLabel } from '../matrixLabels.ts'
 import styles from './RiskMatrix.module.css'
+import { withCode } from '../codeLabel.ts'
 
 interface RiskMatrixProps {
   risks: readonly Risk[]
@@ -75,7 +76,7 @@ function CellTooltip({ cell, columnIndex, clickable }: CellTooltipProps) {
       ) : (
         <span className={styles.tooltipList}>
           {titles.map((risk) => (
-            <span key={risk.id}>• {risk.title}</span>
+            <span key={risk.id}>• {withCode(risk.code, risk.title)}</span>
           ))}
           {rest > 0 && <span className={styles.tooltipMuted}>og {rest} til</span>}
         </span>

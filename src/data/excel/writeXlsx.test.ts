@@ -11,19 +11,20 @@ const CREATED = '2026-11-01T08:00:00.000Z'
 
 function sample(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
-      { id: 'o1', name: 'Kari Nordmann', email: 'kari@example.no' },
-      { id: 'o2', name: 'Ola Nordmann' },
+      { id: 'o1', code: 'E-1', name: 'Kari Nordmann', email: 'kari@example.no' },
+      { id: 'o2', code: 'E-2', name: 'Ola Nordmann' },
     ],
-    themes: [{ id: 't1', name: 'Leverandør', description: 'Innkjøp og avtaler' }],
+    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør', description: 'Innkjøp og avtaler' }],
     areas: [
-      { id: 'a1', name: 'IT', horizon: '3-5' },
-      { id: 'a2', name: 'Økonomi', horizon: '5+', description: 'Regnskap' },
+      { id: 'a1', code: 'O-1', name: 'IT', horizon: '3-5' },
+      { id: 'a2', code: 'O-2', name: 'Økonomi', horizon: '5+', description: 'Regnskap' },
     ],
     risks: [
       {
         id: 'r1',
+        code: 'R-1',
         title: 'Leverandør går konkurs',
         description: 'Viktig leverandør',
         type: 'threat',
@@ -37,6 +38,7 @@ function sample(): AppData {
       },
       {
         id: 'r2',
+        code: 'R-2',
         title: '=HYPERLINK("http://example.com")',
         type: 'opportunity',
         ownerId: 'o2',
@@ -107,7 +109,7 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
 
   it('skriver tekst som begynner med «=» som tekst, ikke formel', async () => {
     const workbook = await load(await writeXlsx(sample()))
-    const cell = workbook.getWorksheet('Risikoer')?.getCell('A3')
+    const cell = workbook.getWorksheet('Risikoer')?.getCell('B3')
     expect(cell?.value).toBe('=HYPERLINK("http://example.com")')
     expect(cell?.formula).toBeUndefined()
   })
@@ -116,6 +118,7 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
     const sheet = (await load(await writeXlsx(sample()))).getWorksheet('Risikoer')
     expect(sheet?.getRow(1).values).toEqual([
       undefined,
+      'ID',
       'Tittel',
       'Beskrivelse',
       'Type',
@@ -129,6 +132,7 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
     ])
     expect(sheet?.getRow(2).values).toEqual([
       undefined,
+      'R-1',
       'Leverandør går konkurs',
       'Viktig leverandør',
       'Trussel',
@@ -170,14 +174,16 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
     const areas = workbook.getWorksheet('Områder')
     const list = (formula: string) => expect.objectContaining({ type: 'list', formulae: [formula] })
 
-    expect(risks?.getCell('C2').dataValidation).toEqual(list('"Trussel,Mulighet"'))
-    expect(risks?.getCell(`G${VALIDATION_LAST_ROW}`).dataValidation).toEqual(list('"1,2,3,4,5"'))
-    expect(risks?.getCell('H50').dataValidation).toEqual(list('"1,2,3,4,5"'))
-    expect(areas?.getCell('B2').dataValidation).toEqual(list('"0 - 3 år,3 - 5 år,5 år +"'))
+    // Kolonnene: A ID, B Tittel, C Beskrivelse, D Type, E Eier, …, H Sannsynlighet, I Konsekvens.
+    expect(risks?.getCell('D2').dataValidation).toEqual(list('"Trussel,Mulighet"'))
+    expect(risks?.getCell(`H${VALIDATION_LAST_ROW}`).dataValidation).toEqual(list('"1,2,3,4,5"'))
+    expect(risks?.getCell('I50').dataValidation).toEqual(list('"1,2,3,4,5"'))
+    expect(areas?.getCell('C2').dataValidation).toEqual(list('"0 - 3 år,3 - 5 år,5 år +"'))
 
     expect(risks?.getCell('A2').dataValidation).toBeUndefined()
-    expect(risks?.getCell('D2').dataValidation).toBeUndefined()
-    expect(risks?.getCell('C1').dataValidation).toBeUndefined()
+    expect(risks?.getCell('B2').dataValidation).toBeUndefined()
+    expect(risks?.getCell('E2').dataValidation).toBeUndefined()
+    expect(risks?.getCell('D1').dataValidation).toBeUndefined()
   })
 
   it('har en veiledning med varselet om at importen erstatter alt', async () => {
@@ -195,7 +201,7 @@ describe('writeTemplate (K33)', { timeout: 20_000 }, () => {
     const result = await importBlob(await writeTemplate())
     expect(result).toEqual({
       ok: true,
-      data: { schemaVersion: 2, owners: [], themes: [], areas: [], risks: [] },
+      data: { schemaVersion: 3, owners: [], themes: [], areas: [], risks: [] },
     })
   })
 
@@ -209,12 +215,12 @@ describe('writeTemplate (K33)', { timeout: 20_000 }, () => {
         })
       })
     }
-    fill('Eiere', [['Kari Nordmann', 'kari@example.no'], ['Ola Nordmann']])
-    fill('Temaer', [['Leverandør']])
-    fill('Områder', [['IT', '0 - 3 år']])
+    fill('Eiere', [['E-1', 'Kari Nordmann', 'kari@example.no'], ['E-2', 'Ola Nordmann']])
+    fill('Temaer', [['T-1', 'Leverandør']])
+    fill('Områder', [['O-1', 'IT', '0 - 3 år']])
     fill('Risikoer', [
-      ['Leverandør går konkurs', '', 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 2, 5],
-      ['Ny avtale', 'Bedre vilkår', 'Mulighet', 'Ola Nordmann', 'Leverandør', 'IT', 3, 4],
+      ['R-1', 'Leverandør går konkurs', '', 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 2, 5],
+      ['R-2', 'Ny avtale', 'Bedre vilkår', 'Mulighet', 'Ola Nordmann', 'Leverandør', 'IT', 3, 4],
     ])
     const filled = new Blob([await workbook.xlsx.writeBuffer()])
 

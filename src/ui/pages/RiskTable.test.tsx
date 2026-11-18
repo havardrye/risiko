@@ -18,7 +18,7 @@ function risk(overrides: Partial<Risk> & Pick<Risk, 'id' | 'title'>): Risk {
 
 function seed(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
       { id: 'o1', name: 'Kari Nordmann' },
       { id: 'o2', name: 'Ola Åsen' },
@@ -41,6 +41,7 @@ function seed(): AppData {
       }),
       risk({
         id: 'r2',
+        code: 'R-007',
         title: 'Datainnbrudd',
         ownerId: 'o2',
         themeId: 't2',
@@ -89,7 +90,7 @@ function rowFor(title: string) {
 
 function cellTexts(row: HTMLElement) {
   return Array.from(row.children)
-    .slice(0, 8)
+    .slice(0, 9)
     .map((cell) => cell.textContent)
 }
 
@@ -104,6 +105,7 @@ describe('risikotabell (K3–K5)', () => {
     await openPage()
     expect(screen.getByText('4 risikoer')).toBeInTheDocument()
     expect(cellTexts(rowFor('Datainnbrudd'))).toEqual([
+      'R-007',
       'Datainnbrudd',
       'Trussel',
       'Ola Åsen',
@@ -114,6 +116,7 @@ describe('risikotabell (K3–K5)', () => {
       '01.02.2026',
     ])
     expect(cellTexts(rowFor('Ny støtteordning'))).toEqual([
+      'Mangler ID',
       'Ny støtteordning',
       'Mulighet',
       'Kari Nordmann',
@@ -127,7 +130,7 @@ describe('risikotabell (K3–K5)', () => {
 
   it('viser nivå fra nivåtabellen, ikke fra scoren', async () => {
     await openPage()
-    expect(cellTexts(rowFor('Ærlig tilbakemelding uteblir')).slice(5, 7)).toEqual(['4', 'Middels'])
+    expect(cellTexts(rowFor('Ærlig tilbakemelding uteblir')).slice(6, 8)).toEqual(['4', 'Middels'])
   })
 
   describe('sortering', () => {
@@ -208,11 +211,12 @@ describe('risikotabell (K3–K5)', () => {
 
       const dialog = screen.getByRole('dialog', { name: 'Endre risiko' })
       expect(within(dialog).getByLabelText('Tittel')).toHaveValue('Datainnbrudd')
+      expect(within(dialog).getByLabelText('ID')).toHaveValue('R-007')
       await user.selectOptions(within(dialog).getByLabelText('Sannsynlighet'), '1 – Svært lav')
       await user.click(within(dialog).getByRole('button', { name: 'Lagre' }))
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(cellTexts(rowFor('Datainnbrudd')).slice(5, 7)).toEqual(['5', 'Middels'])
+      expect(cellTexts(rowFor('Datainnbrudd')).slice(6, 8)).toEqual(['5', 'Middels'])
       const saved = (await repository.load()).risks.find((r) => r.id === 'r2')
       expect(saved?.likelihood).toBe(1)
       expect(saved?.createdAt).toBe('2026-01-01T09:00:00.000Z')
@@ -269,7 +273,51 @@ describe('risikotabell (K3–K5)', () => {
 
       await user.click(screen.getByRole('link', { name: 'Risikoeiere' }))
       await screen.findByRole('heading', { level: 1, name: 'Risikoeiere' })
-      expect(cellTexts(rowFor('Ola Åsen')).slice(0, 3)).toEqual(['Ola Åsen', '–', '0'])
+      expect(cellTexts(rowFor('Ola Åsen')).slice(0, 4)).toEqual(['Mangler ID', 'Ola Åsen', '–', '0'])
     })
+  })
+})
+
+describe('ID i registeret og matrisen (spec 004, K49)', () => {
+  it('viser ID i første kolonne, og «Mangler ID» for risikoer fra før (akseptkriterium)', async () => {
+    await openPage()
+    expect(screen.getAllByRole('columnheader')[0]).toHaveTextContent('ID')
+    expect(cellTexts(rowFor('Datainnbrudd'))[0]).toBe('R-007')
+    const missing = within(rowFor('Leverandør går konkurs')).getByText('Mangler ID')
+    expect(missing).toHaveClass('muted')
+  })
+})
+
+describe('søk og sortering på ID (spec 004, K55)', () => {
+  function withCodes(): AppData {
+    const data = seed()
+    const codes: Record<string, string> = { r1: 'R-10', r3: 'R-2' }
+    data.risks = data.risks.map((item) => (codes[item.id] ? { ...item, code: codes[item.id] } : item))
+    return data
+  }
+
+  it('sorterer på ID ved klikk på kolonnen: R-2 før R-10, og uten ID sist (akseptkriterium)', async () => {
+    const { user } = renderApp({ route: '/', data: withCodes() })
+    await screen.findByRole('heading', { level: 1, name: 'Risikoregister' })
+
+    await user.click(screen.getByRole('button', { name: /^ID/ }))
+    expect(screen.getByRole('columnheader', { name: /^ID/ })).toHaveAttribute('aria-sort', 'ascending')
+    const codes = () =>
+      within(screen.getByRole('table'))
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.children[0]?.textContent)
+    expect(codes()).toEqual(['R-2', 'R-007', 'R-10', 'Mangler ID'])
+
+    await user.click(screen.getByRole('button', { name: /^ID/ }))
+    expect(codes()).toEqual(['R-10', 'R-007', 'R-2', 'Mangler ID'])
+    expect(screen.getByRole('table')).toHaveAccessibleName('Risikoer, sortert etter ID, synkende')
+  })
+
+  it('finner en risiko ved søk på ID (akseptkriterium)', async () => {
+    const { user } = renderApp({ route: '/', data: withCodes() })
+    await screen.findByRole('heading', { level: 1, name: 'Risikoregister' })
+    await user.type(screen.getByLabelText('Søk'), 'R-007')
+    expect(titles()).toEqual(['Datainnbrudd'])
   })
 })

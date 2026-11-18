@@ -2,6 +2,7 @@ import { useState, type MouseEvent } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAppData } from '../state/dataContext.ts'
 import { DataMenu } from './components/DataMenu.tsx'
+import { MissingCodesNotice } from './components/MissingCodesNotice.tsx'
 import { StorageNotice } from './components/StorageNotice.tsx'
 import { exportAppData, hasData } from './exportData.ts'
 import styles from './Layout.module.css'
@@ -61,6 +62,7 @@ export function Layout() {
         <DataMenu status={status} onStatus={setStatus} onExport={exportNow} />
       </header>
       <StorageNotice onExport={hasData(data) ? exportNow : undefined} />
+      <MissingCodesNotice />
       <main id="innhold" className={styles.main} tabIndex={-1}>
         <Outlet />
       </main>

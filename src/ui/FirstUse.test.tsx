@@ -15,7 +15,7 @@ function heading(name: string) {
 
 function withOneOfEach(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
     areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
@@ -61,6 +61,7 @@ describe('første gangs bruk (K22)', () => {
     await heading('Risikoeiere')
     expect(screen.queryByText('Neste steg:')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ny risikoeier' }))
+    await user.type(screen.getByLabelText('ID'), 'E-1')
     await user.type(screen.getByLabelText('Navn'), 'Kari Nordmann{Enter}')
     await screen.findByRole('rowheader', { name: 'Kari Nordmann' })
     const toThemes = screen.getByText('Neste steg:').parentElement!
@@ -72,6 +73,7 @@ describe('første gangs bruk (K22)', () => {
     // 3. Første tema, deretter områder.
     await heading('Risikotemaer')
     await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
+    await user.type(screen.getByLabelText('ID'), 'T-1')
     await user.type(screen.getByLabelText('Navn'), 'Leverandør{Enter}')
     await screen.findByRole('rowheader', { name: 'Leverandør' })
     const toAreas = screen.getByText('Neste steg:').parentElement!
@@ -80,6 +82,7 @@ describe('første gangs bruk (K22)', () => {
     // 4. Første område, deretter registeret.
     await heading('Risikoområder')
     await user.click(screen.getByRole('button', { name: 'Nytt område' }))
+    await user.type(screen.getByLabelText('ID'), 'O-1')
     await user.type(screen.getByLabelText('Navn'), 'IT')
     await user.selectOptions(screen.getByLabelText('Når?'), '0 - 3 år')
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
@@ -94,6 +97,7 @@ describe('første gangs bruk (K22)', () => {
     expect(screen.getByText(/Ingen risikoer er registrert ennå/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ny risiko' }))
     const dialog = screen.getByRole('dialog', { name: 'Ny risiko' })
+    await user.type(within(dialog).getByLabelText('ID'), 'R-1')
     await user.type(within(dialog).getByLabelText('Tittel'), 'Leverandør går konkurs')
     await user.selectOptions(within(dialog).getByLabelText('Risikoeier'), 'Kari Nordmann')
     await user.selectOptions(within(dialog).getByLabelText('Tema'), 'Leverandør')

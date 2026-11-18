@@ -15,7 +15,7 @@ vi.mock('../../data/excel/index.ts', async (importOriginal) => ({
 
 function current(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
     areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
@@ -38,7 +38,7 @@ function current(): AppData {
 
 function imported(): AppData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     owners: [
       { id: 'x1', name: 'Per Hansen' },
       { id: 'x2', name: 'Ola Åsen' },
@@ -338,7 +338,9 @@ describe('eksportdialogen (K33, K34, K35)', () => {
       'Sikkerhetskopi (JSON)',
       'Tom Excel-mal',
     ])
-    expect(choices[0]).toHaveAccessibleDescription('Alle data i en Excel-fil du kan redigere og importere igjen.')
+    expect(choices[0]).toHaveAccessibleDescription(
+      /^Alle data i en Excel-fil du kan redigere og importere igjen\./,
+    )
     expect(choices[2]).toHaveAccessibleDescription('En tom Excel-fil med riktige faner, kolonner og nedtrekkslister.')
   })
 
@@ -393,5 +395,62 @@ describe('eksportdialogen (K33, K34, K35)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(downloadTextFile).toHaveBeenCalledTimes(1)
     expect(vi.mocked(downloadTextFile).mock.calls[0]![0]).toMatch(/\.json$/)
+  })
+})
+
+describe('advarsel om manglende ID ved Excel-eksport (spec 004, K54)', () => {
+  function withAllCodes(): AppData {
+    const data = current()
+    return {
+      ...data,
+      owners: data.owners.map((item) => ({ ...item, code: 'E-1' })),
+      themes: data.themes.map((item) => ({ ...item, code: 'T-1' })),
+      areas: data.areas.map((item) => ({ ...item, code: 'O-1' })),
+      risks: data.risks.map((item) => ({ ...item, code: 'R-1' })),
+    }
+  }
+
+  async function openExportWith(data: AppData) {
+    const app = renderApp({ route: '/', data })
+    await screen.findByRole('heading', { level: 1, name: 'Risikoregister' })
+    await app.user.click(screen.getByRole('button', { name: 'Eksporter' }))
+    return { ...app, dialog: screen.getByRole('dialog', { name: 'Eksporter' }) }
+  }
+
+  it('viser ingen advarsel når alt har ID', async () => {
+    const { dialog } = await openExportWith(withAllCodes())
+    expect(within(dialog).queryByText(/mangler ID/)).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Excel (for redigering)' })).toHaveAccessibleDescription(
+      'Alle data i en Excel-fil du kan redigere og importere igjen.',
+    )
+  })
+
+  it('advarer under Excel-valget når noe mangler ID, og kobler advarselen til knappen', async () => {
+    const { dialog } = await openExportWith(current())
+    const warning = '4 elementer mangler ID. Filen kan ikke importeres igjen før de har fått det.'
+    expect(within(dialog).getByText(warning)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Excel (for redigering)' })).toHaveAccessibleDescription(
+      `Alle data i en Excel-fil du kan redigere og importere igjen. ${warning}`,
+    )
+    expect(within(dialog).getByRole('button', { name: 'Sikkerhetskopi (JSON)' })).toHaveAccessibleDescription(
+      'Alle data nøyaktig slik de er lagret. Bruk denne til sikkerhetskopi.',
+    )
+  })
+
+  it('bruker entall når ett element mangler ID', async () => {
+    const data = withAllCodes()
+    const { code: _code, ...legacy } = data.risks[0]!
+    data.risks = [legacy]
+    const { dialog } = await openExportWith(data)
+    expect(
+      within(dialog).getByText('1 element mangler ID. Filen kan ikke importeres igjen før det har fått det.'),
+    ).toBeInTheDocument()
+  })
+
+  it('sperrer ikke eksporten', async () => {
+    vi.mocked(exportExcel).mockResolvedValue(new Blob(['xlsx']))
+    const { user, dialog } = await openExportWith(current())
+    await user.click(within(dialog).getByRole('button', { name: 'Excel (for redigering)' }))
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1))
   })
 })
