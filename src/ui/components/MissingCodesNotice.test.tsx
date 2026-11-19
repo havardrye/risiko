@@ -24,7 +24,7 @@ function risk(id: string, title: string, code?: string): Risk {
 /** Alt har ID. Testene fjerner ID der de trenger det. */
 function complete(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [
       { id: 'o1', code: 'E-1', name: 'Kari Nordmann' },
       { id: 'o2', code: 'E-2', name: 'Ola Åsen' },

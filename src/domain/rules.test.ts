@@ -8,7 +8,6 @@ import {
   isNameTaken,
   normalizeName,
   risksReferencing,
-  themesReferencing,
 } from './rules.ts'
 import type { AppData, Risk } from './schema.ts'
 
@@ -34,7 +33,7 @@ const owners = [
 
 function validData(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners,
     themes: [
       { id: 't1', name: 'Leverandør' },
@@ -119,7 +118,7 @@ describe('findIntegrityErrors', () => {
   it('godtar gyldige og tomme data', () => {
     expect(findIntegrityErrors(validData())).toEqual([])
     expect(
-      findIntegrityErrors({ schemaVersion: 5, owners: [], themes: [], areas: [], risks: [] }),
+      findIntegrityErrors({ schemaVersion: 6, owners: [], themes: [], areas: [], risks: [] }),
     ).toEqual([])
   })
 
@@ -265,20 +264,11 @@ describe('findByCode (spec 005, K57, K60)', () => {
   })
 })
 
-describe('område på tema (spec 006)', () => {
-  it('themesReferencing gir temaene som hører til området', () => {
-    const themes = [
-      { id: 't1', name: 'A', areaId: 'a1' },
-      { id: 't2', name: 'B', areaId: 'a2' },
-      { id: 't3', name: 'C' },
-    ]
-    expect(themesReferencing(themes, 'a1').map((theme) => theme.id)).toEqual(['t1'])
-    expect(themesReferencing(themes, 'a9')).toEqual([])
-  })
-
-  it('melder et tema som viser til et område som ikke finnes', () => {
+describe('temaer uten område (spec 008)', () => {
+  it('melder ingen feil om temaer og områder når ingen risikoer viser til dem', () => {
     const data = validData()
-    data.themes = [{ ...data.themes[0]!, areaId: 'a1' }, { ...data.themes[1]!, areaId: 'borte' }]
-    expect(findIntegrityErrors(data)).toEqual(['Temaet «Sikkerhet» viser til område som ikke finnes.'])
+    data.risks = []
+    data.areas = []
+    expect(findIntegrityErrors(data)).toEqual([])
   })
 })

@@ -45,11 +45,8 @@ const norm = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('n
  *    «Ri-1», «Ei-2». Faner som allerede har ID-kolonne, og helt tomme rader,
  *    blir stående som de er.
  * 2. I Risikoer kan Eier-ID, Tema-ID og Område-ID skrives med *navn*
- *    (spec 005), og det samme gjelder Område-ID i Temaer (spec 006). Navn som
- *    finnes i fanen de viser til, byttes ut med ID-en der. Andre verdier blir
- *    stående, så tester av ukjente ID-er virker.
- * 3. Temaer uten kolonnen Område-ID får den, med første område i fanen
- *    Områder for hver rad som ikke er tom (spec 006).
+ *    (spec 005). Navn som finnes i fanen de viser til, byttes ut med ID-en
+ *    der. Andre verdier blir stående, så tester av ukjente ID-er virker.
  * Tester av selve kolonnene bruker `workbook()` direkte.
  */
 function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellValue[][]> {
@@ -69,21 +66,6 @@ function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellVa
     }),
   ) as Record<string, CellValue[][]>
 
-  // Temaer uten Område-ID får første område (spec 006).
-  const areaEntry = Object.entries(coded).find(([name]) => norm(name) === 'områder')
-  const firstArea = areaEntry
-    ? (areaEntry[1].slice(1).find((row) => !row.every(isBlank)) ?? [])[
-        (areaEntry[1][0] ?? []).findIndex((header) => norm(header) === 'id')
-      ] ?? null
-    : null
-  for (const [name, [headers = [], ...rows]] of Object.entries(coded)) {
-    if (norm(name) !== 'temaer' || headers.some((header) => norm(header) === 'område-id')) continue
-    coded[name] = [
-      [...headers, 'Område-ID'],
-      ...rows.map((cells) => [...cells, cells.every(isBlank) ? null : firstArea]),
-    ]
-  }
-
   // Navn → ID i fanene Eiere, Temaer og Områder.
   const codeByName = (sheetName: string) => {
     const entry = Object.entries(coded).find(([name]) => norm(name) === sheetName)
@@ -96,7 +78,7 @@ function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellVa
 
   return Object.fromEntries(
     Object.entries(coded).map(([name, [headers = [], ...rows]]) => {
-      if (norm(name) !== 'risikoer' && norm(name) !== 'temaer') return [name, [headers, ...rows]]
+      if (norm(name) !== 'risikoer') return [name, [headers, ...rows]]
       const translations = headers.map((header) => {
         const target = REFERENCE_SHEETS[norm(header)]
         return target ? codeByName(target) : undefined
@@ -139,7 +121,7 @@ describe('parseSheets – gyldig fil', () => {
     const result = parseSheets(validFile())
     expect(result.errors).toEqual([])
     expect(result.owners).toEqual([{ rowNumber: 2, value: { code: 'Ei-1', name: 'Kari Nordmann', email: 'kari@example.no' } }])
-    expect(result.themes).toEqual([{ rowNumber: 2, value: { code: 'Te-1', name: 'Leverandør', area: 'Om-1' } }])
+    expect(result.themes).toEqual([{ rowNumber: 2, value: { code: 'Te-1', name: 'Leverandør' } }])
     expect(result.areas).toEqual([
       { rowNumber: 2, value: { code: 'Om-1', name: 'IT', description: 'Drift og utvikling' } },
     ])
@@ -177,12 +159,12 @@ describe('parseSheets – gyldig fil', () => {
       }),
     )
     expect(result.errors).toEqual([])
-    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør', area: 'Om-1' })
+    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør' })
   })
 
   it('trimmer tekst og lar tomme valgfrie felt være tomme', () => {
     const result = parseSheets(validFile({ Temaer: [['Navn', 'Beskrivelse'], ['  Leverandør  ', '   ']] }))
-    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør', area: 'Om-1' })
+    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør' })
   })
 
   it('godtar tall som tekst og tall som tall', () => {
@@ -392,7 +374,7 @@ describe('parseWorkbook – gyldig fil (K26)', () => {
     expect([data.owners.length, data.themes.length, data.areas.length, data.risks.length]).toEqual([
       3, 2, 2, 10,
     ])
-    expect(data.schemaVersion).toBe(5)
+    expect(data.schemaVersion).toBe(6)
 
     const nameOf = (list: readonly { id: string; name: string }[], id: string) =>
       list.find((item) => item.id === id)?.name
@@ -636,53 +618,44 @@ describe('Risikoer viser til ID (spec 005, K60)', () => {
   })
 })
 
-describe('Område-ID i fanen Temaer (spec 006, K69, K70)', () => {
+describe('Temaer uten område (spec 008, K79)', () => {
   const base = () => ({
     Risikoer: [
       ['ID', 'Tittel', 'Type', 'Eier-ID', 'Tema-ID', 'Område-ID', 'Sannsynlighet', 'Konsekvens'],
       ['R-1', 'A', 'Trussel', 'E-1', 'T-1', 'O-1', 1, 1],
     ] as CellValue[][],
     Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']] as CellValue[][],
-    Temaer: [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 'O-2']] as CellValue[][],
-    Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år'], ['O-2', 'Økonomi', '5 år +']] as CellValue[][],
+    Temaer: [['ID', 'Navn', 'Beskrivelse'], ['T-1', 'Leverandør', 'Avtaler']] as CellValue[][],
+    Områder: [['ID', 'Navn'], ['O-1', 'IT'], ['O-2', 'Økonomi']] as CellValue[][],
   })
 
-  it('kobler temaet til området med ID-en', () => {
+  it('importerer Temaer med ID, Navn og Beskrivelse', () => {
     const result = parse(workbook(base()))
     expect(result.ok).toBe(true)
-    if (!result.ok) return
-    const theme = result.data.themes[0]
-    expect(result.data.areas.find((area) => area.id === theme?.areaId)?.name).toBe('Økonomi')
+    if (result.ok) {
+      expect(result.data.themes).toEqual([{ id: expect.any(String), code: 'T-1', name: 'Leverandør', description: 'Avtaler' }])
+    }
   })
 
-  it('melder en område-ID som ingen har, med fane, rad og kolonne (akseptkriterium)', () => {
+  it('importerer en eldre fil med Område-ID og Område i Temaer og ignorerer kolonnene (akseptkriterium)', () => {
+    const file = base()
+    file.Temaer = [
+      ['ID', 'Navn', 'Område-ID', 'Beskrivelse', 'Område'],
+      ['T-1', 'Leverandør', 'O-2', 'Avtaler', 'Økonomi'],
+      ['T-2', 'Omdømme', null, null, null],
+    ]
+    const result = parse(workbook(file))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.data.themes.map((theme) => theme.name)).toEqual(['Leverandør', 'Omdømme'])
+      expect(result.data.themes.some((theme) => 'areaId' in theme)).toBe(false)
+    }
+  })
+
+  it('godtar også en Område-ID som ingen har, siden kolonnen ikke leses (akseptkriterium)', () => {
     const file = base()
     file.Temaer = [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 'O-9']]
-    expect(failures(workbook(file))).toEqual(['Temaer, rad 2, Område-ID: Ingen område har ID «O-9» i fanen «Områder»'])
-  })
-
-  it('avviser en fil uten kolonnen Område-ID i Temaer (akseptkriterium)', () => {
-    const file = base()
-    file.Temaer = [['ID', 'Navn'], ['T-1', 'Leverandør']]
-    expect(failures(workbook(file))).toEqual(['Temaer, Område-ID: Kolonnen «Område-ID» mangler'])
-  })
-
-  it('krever Område-ID på hvert tema', () => {
-    const file = base()
-    file.Temaer = [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', null]]
-    expect(failures(workbook(file))).toEqual(['Temaer, rad 2, Område-ID: Område-ID er påkrevd'])
-  })
-
-  it('ignorerer informasjonskolonnen Område', () => {
-    const file = base()
-    file.Temaer = [['ID', 'Navn', 'Område-ID', 'Område'], ['T-1', 'Leverandør', 'O-2', 'Feil navn']]
     expect(parse(workbook(file)).ok).toBe(true)
-  })
-
-  it('gir ikke følgefeil når raden med området selv har feil', () => {
-    const file = base()
-    file.Områder = [['ID', 'Navn'], ['O-1', 'IT'], ['O-2', null]]
-    expect(failures(workbook(file))).toEqual(['Områder, rad 3, Navn: Navn er påkrevd'])
   })
 })
 

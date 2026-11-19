@@ -3,12 +3,11 @@ import type { Id } from '../domain/schema.ts'
 import type { CodeOption } from './codeSuggestions.ts'
 
 /**
- * Felt der en kobling angis med ID (spec 005, K57–K59; spec 006, K63–K65):
- * hva feltet viser når skjemaet åpnes, og hva teksten betyr ved lagring.
- * Brukes av risikoskjemaet og temaskjemaet.
+ * Felt der en kobling angis med ID (spec 005, K57–K59): hva feltet viser når
+ * skjemaet åpnes, og hva teksten betyr ved lagring. Brukes av risikoskjemaet.
  */
 
-/** Merknaden etter navnet når elementet mangler ID (K59, K65). */
+/** Merknaden etter navnet når elementet mangler ID (K59). */
 export const MISSING_CODE_SUFFIX = ' (mangler ID)'
 
 /** Teksten i feltet og om brukeren har endret den. */
@@ -34,7 +33,7 @@ export function showsMissingCode(value: ReferenceText): boolean {
 
 /**
  * Gjør teksten om til intern id. Er feltet uendret og elementet det er koblet
- * til, mangler ID, beholdes koblingen (K59, K65). Gir id-en eller feilmeldingen
+ * til, mangler ID, beholdes koblingen (K59). Gir id-en eller feilmeldingen
  * som skal vises ved feltet, f.eks. «Ingen risikoeier har ID «E-9».».
  */
 export function resolveReferenceText(

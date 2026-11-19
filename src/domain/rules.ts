@@ -127,11 +127,6 @@ export function risksReferencing(risks: readonly Risk[], kind: ReferenceKind, id
   return risks.filter((risk) => risk[field] === id)
 }
 
-/** Temaene som hører til området (spec 006, K68). Tom liste betyr at ingen temaer sperrer sletting. */
-export function themesReferencing(themes: readonly Theme[], areaId: Id): Theme[] {
-  return themes.filter((theme) => theme.areaId === areaId)
-}
-
 /** Antall risikoer per element, til listene i registrene (K14, K16, K18). */
 export function countRisksBy(risks: readonly Risk[], kind: ReferenceKind): Map<Id, number> {
   const field = REFERENCE_FIELD[kind]
@@ -183,14 +178,6 @@ export function findIntegrityErrors(data: AppData): string[] {
     seenRiskIds.add(risk.id)
   }
   errors.push(...duplicateCodeErrors(data.risks, 'risiko'))
-
-  // Temaets område (spec 006) må finnes når det er satt.
-  const areaIds = new Set(data.areas.map((area) => area.id))
-  for (const theme of data.themes) {
-    if (theme.areaId !== undefined && !areaIds.has(theme.areaId)) {
-      errors.push(`Temaet «${theme.name}» viser til område som ikke finnes.`)
-    }
-  }
 
   return errors
 }

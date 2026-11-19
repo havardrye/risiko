@@ -41,13 +41,11 @@ export const OWNER_SHEET: SheetSpec<'code' | 'name' | 'email'> = {
   ],
 }
 
-export const THEME_SHEET: SheetSpec<'code' | 'name' | 'area' | 'description'> = {
+export const THEME_SHEET: SheetSpec<'code' | 'name' | 'description'> = {
   name: 'Temaer',
   columns: [
     CODE_COLUMN,
     { key: 'name', header: 'Navn', required: true, width: 30 },
-    // Området temaet hører til, angitt med ID (spec 006, K69). Navnet står som informasjon bakerst.
-    { key: 'area', header: 'Område-ID', required: true, width: 12 },
     { key: 'description', header: 'Beskrivelse', required: false, width: 60 },
   ],
 }
@@ -101,15 +99,9 @@ export const RISK_INFO_COLUMNS: readonly ColumnSpec<'score' | 'level' | 'ownerNa
   { key: 'areaName', header: 'Område', required: false, width: 24 },
 ]
 
-/** Navnet til områdets ID bakerst i Temaer (spec 006, K70). Leses ikke ved import. */
-export const THEME_INFO_COLUMNS: readonly ColumnSpec<'areaName'>[] = [
-  { key: 'areaName', header: 'Område', required: false, width: 24 },
-]
-
-/** Informasjonskolonnene per fane, etter de vanlige kolonnene. */
+/** Informasjonskolonnene per fane, etter de vanlige kolonnene. Bare Risikoer har slike. */
 export const INFO_COLUMNS: Readonly<Record<string, readonly ColumnSpec[]>> = {
   Risikoer: RISK_INFO_COLUMNS,
-  Temaer: THEME_INFO_COLUMNS,
 }
 
 /** Fanen med veiledning først i malen og eksporten (K33). Ignoreres ved import. */

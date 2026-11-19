@@ -1,6 +1,6 @@
 import { MemoryRepository } from '../data/memoryRepository.ts'
 import { StoredDataError } from '../data/repository.ts'
-import { emptyAppData, type AppData, type RiskInput } from '../domain/schema.ts'
+import { emptyAppData, type AppData, type RiskInput, type ThemeInput } from '../domain/schema.ts'
 import { DataError, DataStore } from './dataStore.ts'
 
 const T1 = '2026-11-17T10:00:00.000Z'
@@ -8,7 +8,7 @@ const T2 = '2026-11-18T12:30:00.000Z'
 
 function seed(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [
       { id: 'o1', name: 'Kari Nordmann' },
       { id: 'o2', name: 'Ola Åsen' },
@@ -225,11 +225,11 @@ describe('eiere, temaer og områder', () => {
       name: ' Per Hansen ',
       email: 'per@example.com',
     })
-    const theme = await store.createReference('theme', { code: 'K-1', name: 'Sikkerhet', description: 'IKT' , areaId: 'a1' })
+    const theme = await store.createReference('theme', { code: 'K-1', name: 'Sikkerhet', description: 'IKT' })
     const area = await store.createReference('area', { code: 'K-2', name: 'Økonomi' })
 
     expect(owner).toEqual({ id: 'ny-1', code: 'E-9', name: 'Per Hansen', email: 'per@example.com' })
-    expect(theme).toEqual({ id: 'ny-2', code: 'K-1', name: 'Sikkerhet', description: 'IKT', areaId: 'a1' })
+    expect(theme).toEqual({ id: 'ny-2', code: 'K-1', name: 'Sikkerhet', description: 'IKT'})
     expect(area).toEqual({ id: 'ny-3', code: 'K-2', name: 'Økonomi' })
     expect(data().owners).toHaveLength(3)
     expect(data().themes).toHaveLength(2)
@@ -254,7 +254,7 @@ describe('eiere, temaer og områder', () => {
 
   it('avviser manglende navn og ugyldig e-post uten å lagre', async () => {
     const { store, save } = await setup()
-    expect((await rejection(store.createReference('theme', { code: 'K-7', name: '  ' , areaId: 'a1' }))).fieldErrors).toEqual({
+    expect((await rejection(store.createReference('theme', { code: 'K-7', name: '  ' }))).fieldErrors).toEqual({
       name: 'Navn er påkrevd',
     })
     expect(
@@ -304,7 +304,7 @@ describe('eiere, temaer og områder', () => {
 
   it('avviser endring av element som ikke finnes', async () => {
     const { store } = await setup()
-    expect((await rejection(store.updateReference('theme', 'x', { code: 'K-12', name: 'Nytt' , areaId: 'a1' }))).message).toBe(
+    expect((await rejection(store.updateReference('theme', 'x', { code: 'K-12', name: 'Nytt' }))).message).toBe(
       'Temaet finnes ikke lenger.',
     )
   })
@@ -437,7 +437,7 @@ describe('egne ID-er (spec 004, K47, K50)', () => {
     const { store, data } = await setup()
     await store.createReference('owner', { code: '7', name: 'Per Hansen' })
     await store.createRisk({ ...riskInput, code: '7' })
-    await store.createReference('theme', { code: '7', name: 'Lønn' , areaId: 'a1' })
+    await store.createReference('theme', { code: '7', name: 'Lønn' })
     expect([data().owners.at(-1)?.code, data().risks.at(-1)?.code, data().themes.at(-1)?.code]).toEqual(['7', '7', '7'])
   })
 
@@ -455,46 +455,26 @@ describe('egne ID-er (spec 004, K47, K50)', () => {
   })
 })
 
-describe('område på tema (spec 006, K63, K68)', () => {
-  it('lagrer temaets område', async () => {
+describe('temaer uten område (spec 008, K76, K77)', () => {
+  it('lagrer et tema uten område, og forkaster et område som sendes med', async () => {
     const { store, data } = await setup()
-    await store.createReference('theme', { code: 'T-9', name: 'Lønn', areaId: 'a1' })
-    expect(data().themes.at(-1)?.areaId).toBe('a1')
+    await store.createReference('theme', { code: 'T-9', name: 'Lønn', areaId: 'a1' } as ThemeInput)
+    expect(data().themes.at(-1)).toEqual({ id: expect.any(String), code: 'T-9', name: 'Lønn' })
   })
 
-  it('avviser et område som ikke finnes, uten å lagre', async () => {
-    const { store, save } = await setup()
-    const error = await rejection(store.createReference('theme', { code: 'T-9', name: 'Lønn', areaId: 'borte' }))
-    expect(error.fieldErrors).toEqual({ areaId: 'Området finnes ikke lenger.' })
-    expect(save).not.toHaveBeenCalled()
-  })
-
-  it('sperrer sletting av et område som et tema bruker, og oppgir temaet', async () => {
+  it('sletter et område som ingen risikoer bruker, selv om det finnes temaer (akseptkriterium)', async () => {
     const initial = seed()
     initial.risks = []
-    initial.themes = [{ ...initial.themes[0]!, areaId: 'a1' }]
-    const { store, save } = await setup(initial)
-    const error = await rejection(store.deleteReference('area', 'a1'))
-    expect(error.message).toBe('«IT» kan ikke slettes fordi 1 tema bruker den.')
-    expect(error.blockingThemes.map((theme) => theme.id)).toEqual(['t1'])
-    expect(error.blockingRisks).toEqual([])
-    expect(save).not.toHaveBeenCalled()
-  })
-
-  it('nevner både risikoer og temaer når begge bruker området', async () => {
-    const initial = seed()
-    initial.themes = [{ ...initial.themes[0]!, areaId: 'a1' }]
-    const { store } = await setup(initial)
-    const error = await rejection(store.deleteReference('area', 'a1'))
-    expect(error.message).toBe('«IT» kan ikke slettes fordi 1 risiko og 1 tema bruker den.')
-  })
-
-  it('tillater sletting når verken risikoer eller temaer bruker området', async () => {
-    const initial = seed()
-    initial.areas.push({ id: 'a2', name: 'HR' })
-    initial.themes = [{ ...initial.themes[0]!, areaId: 'a1' }]
     const { store, data } = await setup(initial)
-    await store.deleteReference('area', 'a2')
-    expect(data().areas.map((area) => area.id)).toEqual(['a1'])
+    await store.deleteReference('area', 'a1')
+    expect(data().areas).toEqual([])
+    expect(data().themes).toHaveLength(1)
+  })
+
+  it('sperrer fortsatt sletting av et område som en risiko bruker, uten å nevne temaer', async () => {
+    const { store, save } = await setup()
+    const error = await rejection(store.deleteReference('area', 'a1'))
+    expect(error.message).toBe('«IT» kan ikke slettes fordi 1 risiko bruker den.')
+    expect(save).not.toHaveBeenCalled()
   })
 })

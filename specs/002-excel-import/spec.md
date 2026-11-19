@@ -19,7 +19,7 @@ Appen tilbyr en nedlastbar **mal** med riktige faner og kolonner, nedtrekksliste
 >
 > **Endret av [005-id-koblinger](../005-id-koblinger/spec.md) (K60–K62):** I Risikoer erstattes Eier, Tema og Område av Eier-ID, Tema-ID og Område-ID. Navnene står med som informasjonskolonner ved eksport.
 >
-> **Endret av [006-omrade-pa-tema](../006-omrade-pa-tema/spec.md) (K69–K70):** Fanen Temaer får kolonnen «Område-ID» etter Navn, og «Område» med navnet bakerst til informasjon.
+> **Endret av [006-omrade-pa-tema](../006-omrade-pa-tema/spec.md) (K69–K70), opphevet av [008-fjern-omrade-pa-tema](../008-fjern-omrade-pa-tema/spec.md) (K79):** Fanen Temaer fikk kolonnene «Område-ID» og «Område» i 006. De er fjernet igjen, så Temaer har ID, Navn og Beskrivelse. Eldre filer med kolonnene kan fortsatt importeres, og kolonnene ignoreres.
 >
 > **Endret av [007-fjern-nar](../007-fjern-nar/spec.md) (K74):** Fanen Områder har ikke lenger kolonnen «Når?». Eldre filer med kolonnen kan fortsatt importeres, og kolonnen ignoreres.
 

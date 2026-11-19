@@ -7,6 +7,7 @@ import {
   ownerSchema,
   riskInputSchema,
   riskSchema,
+  themeInputSchema,
   themeSchema,
 } from './schema.ts'
 
@@ -131,7 +132,7 @@ describe('appDataSchema', () => {
 
   it('godtar et fullt datasett', () => {
     const data = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       owners: [{ id: 'o1', name: 'Kari' }],
       themes: [{ id: 't1', name: 'Leverandør' }],
       areas: [{ id: 'a1', name: 'IT' }],
@@ -140,7 +141,7 @@ describe('appDataSchema', () => {
     expect(appDataSchema.safeParse(data).success).toBe(true)
   })
 
-  it.each([0, 1, 2, 3, 4, 6, '5', undefined])('avviser schemaVersion %s', (version) => {
+  it.each([0, 1, 2, 3, 4, 5, 7, '6', undefined])('avviser schemaVersion %s', (version) => {
     expect(appDataSchema.safeParse({ ...emptyAppData(), schemaVersion: version }).success).toBe(false)
   })
 
@@ -193,14 +194,17 @@ describe('ID (code, spec 004)', () => {
   })
 })
 
-describe('område på tema (spec 006)', () => {
-  it('lagres som intern id og er valgfritt i lagrede data (K64)', () => {
-    expect(themeSchema.parse({ id: 't1', name: 'Leverandør', areaId: 'a1' }).areaId).toBe('a1')
+describe('temaer uten område (spec 008)', () => {
+  it('godtar et tema uten område', () => {
     expect(themeSchema.safeParse({ id: 't1', name: 'Leverandør' }).success).toBe(true)
+    expect(themeInputSchema.safeParse({ code: 'T-1', name: 'Leverandør' }).success).toBe(true)
   })
 
-  it('avviser tom tekst med «Område er påkrevd»', () => {
-    const result = themeSchema.safeParse({ id: 't1', name: 'Leverandør', areaId: '' })
-    expect(result.error?.issues[0]?.message).toBe('Område er påkrevd')
+  it('forkaster område i inndata og i lagrede data', () => {
+    expect(themeInputSchema.parse({ code: 'T-1', name: 'Leverandør', areaId: 'a1' })).toEqual({
+      code: 'T-1',
+      name: 'Leverandør',
+    })
+    expect(themeSchema.parse({ id: 't1', name: 'Leverandør', areaId: 'a1' })).toEqual({ id: 't1', name: 'Leverandør' })
   })
 })

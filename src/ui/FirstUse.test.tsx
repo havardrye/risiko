@@ -15,7 +15,7 @@ function heading(name: string) {
 
 function withOneOfEach(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
     areas: [{ id: 'a1', name: 'IT' }],
@@ -57,41 +57,39 @@ describe('første gangs bruk (K22)', () => {
     const guide = screen.getByRole('region', { name: 'Kom i gang' })
     await user.click(within(guide).getByRole('link', { name: 'Risikoeiere' }))
 
-    // 2. Første eier. Deretter peker siden videre til temaer.
+    // 2. Første eier. Deretter peker siden videre til temaer (spec 008, K78).
     await heading('Risikoeiere')
     expect(screen.queryByText('Neste steg:')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ny risikoeier' }))
     await user.type(screen.getByLabelText('ID'), 'E-1')
     await user.type(screen.getByLabelText('Navn'), 'Kari Nordmann{Enter}')
     await screen.findByRole('rowheader', { name: 'Kari Nordmann' })
-    // Område kommer før tema, fordi et tema hører til et område (spec 006).
-    const toAreas = screen.getByText('Neste steg:').parentElement!
-    expect(toAreas).toHaveTextContent(
-      'Neste steg: opprett minst ett risikoområde under Risikoområder.',
-    )
-    await user.click(within(toAreas).getByRole('link', { name: 'Risikoområder' }))
-
-    // 3. Første område, deretter temaer.
-    await heading('Risikoområder')
-    await user.click(screen.getByRole('button', { name: 'Nytt område' }))
-    await user.type(screen.getByLabelText('ID'), 'O-1')
-    await user.type(screen.getByLabelText('Navn'), 'IT')
-    await user.click(screen.getByRole('button', { name: 'Lagre' }))
-    await screen.findByRole('rowheader', { name: 'IT' })
     const toThemes = screen.getByText('Neste steg:').parentElement!
     expect(toThemes).toHaveTextContent(
       'Neste steg: opprett minst ett risikotema under Risikotemaer.',
     )
     await user.click(within(toThemes).getByRole('link', { name: 'Risikotemaer' }))
 
-    // 4. Første tema, i området IT. Deretter registeret.
+    // 3. Første tema, deretter områder.
     await heading('Risikotemaer')
     await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
     await user.type(screen.getByLabelText('ID'), 'T-1')
     await user.type(screen.getByLabelText('Navn'), 'Leverandør')
-    await user.type(screen.getByLabelText('Område'), 'O-1')
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
     await screen.findByRole('rowheader', { name: 'Leverandør' })
+    const toAreas = screen.getByText('Neste steg:').parentElement!
+    expect(toAreas).toHaveTextContent(
+      'Neste steg: opprett minst ett risikoområde under Risikoområder.',
+    )
+    await user.click(within(toAreas).getByRole('link', { name: 'Risikoområder' }))
+
+    // 4. Første område. Deretter registeret.
+    await heading('Risikoområder')
+    await user.click(screen.getByRole('button', { name: 'Nytt område' }))
+    await user.type(screen.getByLabelText('ID'), 'O-1')
+    await user.type(screen.getByLabelText('Navn'), 'IT')
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+    await screen.findByRole('rowheader', { name: 'IT' })
     const toRegister = screen.getByText('Neste steg:').parentElement!
     expect(toRegister).toHaveTextContent('registrer den første risikoen i Risikoregister.')
     await user.click(within(toRegister).getByRole('link', { name: 'Risikoregister' }))

@@ -33,9 +33,8 @@ function from2to3(data: Raw): Raw {
 }
 
 /**
- * Versjon 3 → 4: område på tema (`areaId`, spec 006). Feltet er valgfritt i
- * lagrede data, så dataene endres ikke (K64). Versjonen løftes av samme grunn
- * som i 2 → 3: en eldre app skal avvise dataene, ikke fjerne feltet.
+ * Versjon 3 → 4: område på tema (`areaId`, spec 006). Feltet var valgfritt i
+ * lagrede data, så dataene endres ikke. Feltet fjernes igjen i 5 → 6.
  */
 function from3to4(data: Raw): Raw {
   return { ...data, schemaVersion: 4 }
@@ -56,11 +55,28 @@ function from4to5(data: Raw): Raw {
   return { ...data, schemaVersion: 5, areas }
 }
 
+/**
+ * Versjon 5 → 6: område på tema er fjernet (spec 008, K77). Koblingene
+ * slettes (beslutning 1), så de heller ikke skrives tilbake ved neste lagring.
+ * Risikoens `areaId` er uendret.
+ */
+function from5to6(data: Raw): Raw {
+  const themes = Array.isArray(data.themes)
+    ? data.themes.map((theme: unknown) => {
+        if (typeof theme !== 'object' || theme === null || !('areaId' in theme)) return theme
+        const { areaId: _areaId, ...rest } = theme as Record<string, unknown>
+        return rest
+      })
+    : data.themes
+  return { ...data, schemaVersion: 6, themes }
+}
+
 const MIGRATIONS: Record<number, (data: Raw) => Raw> = {
   1: from1to2,
   2: from2to3,
   3: from3to4,
   4: from4to5,
+  5: from5to6,
 }
 
 /** Versjonene appen kan lese: alle med migrering, pluss gjeldende. */

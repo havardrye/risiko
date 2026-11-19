@@ -2,7 +2,6 @@ import {
   AREA_SHEET,
   OWNER_SHEET,
   RISK_INFO_COLUMNS,
-  THEME_INFO_COLUMNS,
   RISK_SHEET,
   THEME_SHEET,
   type ColumnSpec,
@@ -78,15 +77,12 @@ export function toWorkbookRows(data: AppData): WorkbookRows {
       OWNER_SHEET,
       data.owners.map((owner) => ({ code: text(owner.code), name: owner.name, email: text(owner.email) })),
     ),
-    [THEME_SHEET.name]: sheetRows(
-      [...THEME_SHEET.columns, ...THEME_INFO_COLUMNS],
+    [THEME_SHEET.name]: sheet(
+      THEME_SHEET,
       data.themes.map((theme) => ({
         code: text(theme.code),
         name: theme.name,
-        // Områdets ID, eller tom celle når temaet mangler område eller området mangler ID (spec 006).
-        area: theme.areaId === undefined ? null : codeOf(data.areas, theme.areaId),
         description: text(theme.description),
-        areaName: theme.areaId === undefined ? null : nameOf(areas, theme.areaId),
       })),
     ),
     [AREA_SHEET.name]: sheet(

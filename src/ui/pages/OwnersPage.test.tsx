@@ -14,7 +14,7 @@ function seed(): AppData {
     updatedAt: '2026-11-17T10:00:00.000Z',
   }
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [
       { id: 'o1', code: 'E-1', name: 'Ola Åsen' },
       { id: 'o2', code: 'E-2', name: 'Kari Nordmann', email: 'kari@example.com' },

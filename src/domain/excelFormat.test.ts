@@ -36,7 +36,6 @@ describe('Excel-formatet (K26)', () => {
     expect(described(THEME_SHEET)).toEqual([
       ['ID', true],
       ['Navn', true],
-      ['Område-ID', true],
       ['Beskrivelse', false],
     ])
   })
@@ -98,8 +97,9 @@ describe('findColumns', () => {
   })
 
   it('ignorerer ukjente kolonner', () => {
+    // Område-ID er fjernet fra Temaer (spec 008, K79) og er nå en ukjent kolonne der.
     const lookup = findColumns(['Notat', 'ID', 'Navn', 'Score', 'Område-ID'], THEME_SHEET)
-    expect(lookup.indexes).toEqual({ code: 1, name: 2, area: 4 })
+    expect(lookup.indexes).toEqual({ code: 1, name: 2 })
     expect(lookup.missing).toEqual([])
   })
 

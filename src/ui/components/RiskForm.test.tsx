@@ -14,7 +14,7 @@ const NOW = '2026-11-17T20:00:00.000Z'
 
 function seed(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [
       { id: 'o1', code: 'E-1', name: 'Kari Nordmann' },
       { id: 'o2', code: 'E-2', name: 'Ola Åsen' },

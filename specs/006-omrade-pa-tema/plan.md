@@ -1,6 +1,6 @@
 # 006 – Område på tema: Teknisk plan
 
-Status: GJENNOMFØRT (2026-11-19). Beskriver *hvordan* kravene K63–K70 i `spec.md` løses. Bygger på [004-egne-id-er/plan.md](../004-egne-id-er/plan.md) og [005-id-koblinger/plan.md](../005-id-koblinger/plan.md).
+Status: GJENNOMFØRT (2026-11-19), men tatt bort igjen av [008-fjern-omrade-pa-tema](../008-fjern-omrade-pa-tema/plan.md). Beskriver *hvordan* kravene K63–K70 i `spec.md` løses. Bygger på [004-egne-id-er/plan.md](../004-egne-id-er/plan.md) og [005-id-koblinger/plan.md](../005-id-koblinger/plan.md).
 
 Ingen nye avhengigheter.
 

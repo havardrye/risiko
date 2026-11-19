@@ -15,7 +15,7 @@ vi.mock('../../data/excel/index.ts', async (importOriginal) => ({
 
 function current(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
     areas: [{ id: 'a1', name: 'IT' }],
@@ -38,7 +38,7 @@ function current(): AppData {
 
 function imported(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [
       { id: 'x1', name: 'Per Hansen' },
       { id: 'x2', name: 'Ola Åsen' },

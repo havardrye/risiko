@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react'
-import { emptyAppData, type AppData } from '../../domain/schema.ts'
+import type { AppData } from '../../domain/schema.ts'
 import { LocalStorageRepository, STORAGE_KEY } from '../../data/localStorageRepository.ts'
 import { renderApp } from '../../test/renderApp.tsx'
 
@@ -9,12 +9,11 @@ import { renderApp } from '../../test/renderApp.tsx'
 
 function seed(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [
-      // Begge temaene hører til IT (spec 006).
-      { id: 't1', code: 'T-1', name: 'Leverandør', description: 'Avhengighet av eksterne', areaId: 'a1' },
-      { id: 't2', code: 'T-2', name: 'Sikkerhet', areaId: 'a1' },
+      { id: 't1', code: 'T-1', name: 'Leverandør', description: 'Avhengighet av eksterne'},
+      { id: 't2', code: 'T-2', name: 'Sikkerhet'},
     ],
     areas: [
       { id: 'a1', code: 'O-1', name: 'IT' },
@@ -51,11 +50,10 @@ function rows() {
 
 type User = ReturnType<typeof renderApp>['user']
 
-/** Fyller ut påkrevde felt utover navn: ID (spec 004) og område for temaer (spec 006). */
+/** Fyller ut påkrevde felt utover navn: ID (spec 004). */
 const FILL_REQUIRED = {
   themes: async (user: User, dialog: HTMLElement) => {
     await user.type(within(dialog).getByLabelText('ID'), 'X-9')
-    await user.type(within(dialog).getByLabelText('Område'), 'O-1')
   },
   areas: async (user: User, dialog: HTMLElement) => {
     await user.type(within(dialog).getByLabelText('ID'), 'X-9')
@@ -73,11 +71,10 @@ const PAGES = [
     list: 'themes',
     empty: /Ingen risikotemaer er registrert ennå/,
     rows: [
-      ['T-1', 'Leverandør', 'O-1', 'IT', 'Avhengighet av eksterne', '1'],
-      ['T-2', 'Sikkerhet', 'O-1', 'IT', '–', '0'],
+      ['T-1', 'Leverandør', 'Avhengighet av eksterne', '1'],
+      ['T-2', 'Sikkerhet', '–', '0'],
     ],
-    // Et tema trenger et område å høre til (spec 006).
-    startData: (): AppData => ({ ...emptyAppData(), areas: [{ id: 'a1', code: 'O-1', name: 'IT' }] }),
+    startData: (): AppData | undefined => undefined,
     inUse: 'Leverandør',
     unused: 'Sikkerhet',
   },
@@ -169,7 +166,6 @@ describe.each(PAGES)('$title', (page) => {
     await user.click(screen.getByRole('button', { name: `Slett ${page.inUse}` }))
 
     const dialog = screen.getByRole('dialog', { name: page.blockedTitle })
-    // For området IT står også temaene i listen, etter risikoene (spec 006).
     expect(within(dialog).getAllByRole('listitem')[0]).toHaveTextContent('Leverandør går konkurs')
     expect((await repository.load())[page.list]).toHaveLength(2)
   })
@@ -183,114 +179,6 @@ describe('?rediger= i tema- og områdesidene (spec 004)', () => {
     renderApp({ route, data: seed() })
     const dialog = await screen.findByRole('dialog', { name: title })
     expect(within(dialog).getByLabelText('Navn')).toHaveValue(name)
-  })
-})
-
-describe('område på tema (spec 006, K63–K68)', () => {
-  async function openThemes(data: AppData = seed()) {
-    const app = renderApp({ route: '/temaer', data })
-    await screen.findByRole('heading', { level: 1, name: 'Risikotemaer' })
-    return app
-  }
-
-  it('viser navnet når område-ID-en passer, og viser ID og navn i listen (akseptkriterium)', async () => {
-    const { user, repository } = await openThemes()
-    await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
-    await user.type(screen.getByLabelText('ID'), 'T-3')
-    await user.type(screen.getByLabelText('Navn'), 'Personal')
-    await user.type(screen.getByLabelText('Område'), 'o-2 ')
-    expect(screen.getByLabelText('Område')).toHaveAccessibleDescription('Økonomi')
-    await user.click(screen.getByRole('button', { name: 'Lagre' }))
-
-    expect(await screen.findByRole('rowheader', { name: 'Personal' })).toBeInTheDocument()
-    expect(rows()).toContainEqual(['T-3', 'Personal', 'O-2', 'Økonomi', '–', '0'])
-    expect((await repository.load()).themes.find((theme) => theme.name === 'Personal')?.areaId).toBe('a2')
-  })
-
-  it('krever område på et nytt tema (akseptkriterium)', async () => {
-    const { user, repository } = await openThemes()
-    await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
-    await user.type(screen.getByLabelText('ID'), 'T-3')
-    await user.type(screen.getByLabelText('Navn'), 'Personal')
-    await user.click(screen.getByRole('button', { name: 'Lagre' }))
-
-    expect(screen.getByLabelText('Område')).toHaveAccessibleDescription('Område er påkrevd')
-    expect(screen.getByLabelText('Område')).toHaveFocus()
-    expect((await repository.load()).themes).toHaveLength(2)
-  })
-
-  it('avviser en område-ID som ingen har (akseptkriterium)', async () => {
-    const { user } = await openThemes()
-    await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
-    await user.type(screen.getByLabelText('ID'), 'T-3')
-    await user.type(screen.getByLabelText('Navn'), 'Personal')
-    await user.type(screen.getByLabelText('Område'), 'O-9')
-    await user.click(screen.getByRole('button', { name: 'Lagre' }))
-
-    expect(screen.getByLabelText('Område')).toHaveAccessibleDescription('Ingen område har ID «O-9».')
-  })
-
-  it('viser «Mangler område» for et tema fra før, og krever område når det endres (akseptkriterium)', async () => {
-    const data = seed()
-    data.themes = data.themes.map(({ areaId: _areaId, ...theme }) => theme)
-    const { user } = await openThemes(data)
-    expect(rows()).toContainEqual(['T-2', 'Sikkerhet', 'Mangler område', 'Mangler område', '–', '0'])
-
-    await user.click(screen.getByRole('button', { name: 'Endre Sikkerhet' }))
-    expect(screen.getByLabelText('Område')).toHaveValue('')
-    await user.click(screen.getByRole('button', { name: 'Lagre' }))
-    expect(screen.getByLabelText('Område')).toHaveAccessibleDescription('Område er påkrevd')
-  })
-
-  it('beholder koblingen til et område uten ID når feltet ikke endres (akseptkriterium, K65)', async () => {
-    const data = seed()
-    data.areas = data.areas.map(({ code: _code, ...area }) => area)
-    const { user, repository } = await openThemes(data)
-    expect(rows()).toContainEqual(['T-2', 'Sikkerhet', 'Mangler ID', 'IT', '–', '0'])
-
-    await user.click(screen.getByRole('button', { name: 'Endre Sikkerhet' }))
-    expect(screen.getByLabelText('Område')).toHaveValue('IT (mangler ID)')
-    await user.type(screen.getByLabelText('Beskrivelse (valgfritt)'), 'Tilgang')
-    await user.click(screen.getByRole('button', { name: 'Lagre' }))
-
-    expect(await screen.findByText('Tilgang')).toBeInTheDocument()
-    expect((await repository.load()).themes.find((theme) => theme.id === 't2')?.areaId).toBe('a1')
-  })
-
-  it('viser områdets nye ID i temalisten (akseptkriterium, K67)', async () => {
-    const data = seed()
-    data.areas = data.areas.map((area) => (area.id === 'a1' ? { ...area, code: 'O-01' } : area))
-    await openThemes(data)
-    expect(rows()).toContainEqual(['T-1', 'Leverandør', 'O-01', 'IT', 'Avhengighet av eksterne', '1'])
-  })
-
-  it('sperrer sletting av et område som temaer bruker, og viser temaene (akseptkriterium, K68)', async () => {
-    const { user, repository } = renderApp({ route: '/omrader', data: seed() })
-    await screen.findByRole('heading', { level: 1, name: 'Risikoområder' })
-    await user.click(screen.getByRole('button', { name: 'Slett IT' }))
-
-    const dialog = screen.getByRole('dialog', { name: 'Kan ikke slette området' })
-    expect(within(dialog).getByText(/«IT» er i bruk av 1 risiko og 2 temaer/)).toBeInTheDocument()
-    const lists = within(dialog).getAllByRole('list')
-    expect(within(lists[0]!).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-      'Leverandør går konkurs',
-    ])
-    expect(within(lists[1]!).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-      'Leverandør',
-      'Sikkerhet',
-    ])
-    expect(within(dialog).getByRole('heading', { name: 'Temaer' })).toBeInTheDocument()
-    expect((await repository.load()).areas).toHaveLength(2)
-  })
-
-  it('forklarer det når bare temaer bruker området', async () => {
-    const data = seed()
-    data.risks = []
-    data.themes = [data.themes[0]!]
-    const { user } = renderApp({ route: '/omrader', data })
-    await screen.findByRole('heading', { level: 1, name: 'Risikoområder' })
-    await user.click(screen.getByRole('button', { name: 'Slett IT' }))
-    expect(screen.getByText('«IT» er i bruk av dette temaet. Endre eller slett det først.')).toBeInTheDocument()
   })
 })
 
@@ -332,8 +220,97 @@ describe('områder uten «Når?» (spec 007, K72)', () => {
     await user.click(screen.getByRole('button', { name: 'Endre Økonomi' }))
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as { schemaVersion: number; areas: object[] }
-    expect(saved.schemaVersion).toBe(5)
+    expect(saved.schemaVersion).toBe(6)
     expect(saved.areas.some((area) => 'horizon' in area)).toBe(false)
+    localStorage.clear()
+  })
+})
+
+describe('temaer uten område (spec 008, K75–K77)', () => {
+  async function openThemes(data?: AppData) {
+    const app = renderApp({ route: '/temaer', ...(data ? { data } : {}) })
+    await screen.findByRole('heading', { level: 1, name: 'Risikotemaer' })
+    return app
+  }
+
+  it('har ID, Navn og Beskrivelse i skjemaet, og ikke Område (akseptkriterium)', async () => {
+    const { user } = await openThemes(seed())
+    await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
+    const dialog = screen.getByRole('dialog', { name: 'Nytt tema' })
+
+    const labels = Array.from(dialog.querySelectorAll('label')).map((label) => label.textContent)
+    expect(labels).toEqual(['ID', 'Navn', 'Beskrivelse (valgfritt)'])
+    expect(within(dialog).queryByLabelText('Område')).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  it('har ikke Område-ID og Område i listen (akseptkriterium)', async () => {
+    await openThemes(seed())
+    expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+      'ID',
+      'Navn',
+      'Beskrivelse',
+      'Risikoer',
+      'Handlinger',
+    ])
+  })
+
+  it('oppretter et tema uten område', async () => {
+    const { user, repository } = await openThemes()
+    await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
+    const dialog = screen.getByRole('dialog', { name: 'Nytt tema' })
+    await user.type(within(dialog).getByLabelText('ID'), 'T-1')
+    await user.type(within(dialog).getByLabelText('Navn'), 'Leverandør')
+    await user.click(within(dialog).getByRole('button', { name: 'Lagre' }))
+
+    await screen.findByRole('rowheader', { name: 'Leverandør' })
+    const [theme] = (await repository.load()).themes
+    expect(theme).toMatchObject({ code: 'T-1', name: 'Leverandør' })
+    expect(theme).not.toHaveProperty('areaId')
+  })
+
+  it('lar et område som bare et tema var koblet til, slettes (akseptkriterium)', async () => {
+    localStorage.clear()
+    // Lagret i versjon 5: Sikkerhet hører til Økonomi, som ingen risikoer bruker.
+    const stored = {
+      ...seed(),
+      schemaVersion: 5,
+      themes: seed().themes.map((theme) => ({ ...theme, areaId: theme.id === 't2' ? 'a2' : 'a1' })),
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+    const repository = new LocalStorageRepository()
+    const { user } = renderApp({ route: '/omrader', repository })
+    await screen.findByRole('heading', { level: 1, name: 'Risikoområder' })
+
+    await user.click(screen.getByRole('button', { name: 'Slett Økonomi' }))
+    const dialog = screen.getByRole('dialog', { name: 'Slette området?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Slett' }))
+
+    expect(screen.queryByRole('rowheader', { name: 'Økonomi' })).not.toBeInTheDocument()
+    expect((await repository.load()).areas.map((area) => area.name)).toEqual(['IT'])
+    localStorage.clear()
+  })
+
+  it('viser lagrede temaer med område uten feil, og lagrer dem uten koblingen (akseptkriterium)', async () => {
+    localStorage.clear()
+    const stored = { ...seed(), schemaVersion: 5, themes: seed().themes.map((theme) => ({ ...theme, areaId: 'a1' })) }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+    const repository = new LocalStorageRepository()
+    const { user } = renderApp({ route: '/temaer', repository })
+    await screen.findByRole('heading', { level: 1, name: 'Risikotemaer' })
+    expect(rows()).toEqual([
+      ['T-1', 'Leverandør', 'Avhengighet av eksterne', '1'],
+      ['T-2', 'Sikkerhet', '–', '0'],
+    ])
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    // Neste lagring skriver dataene i versjon 6, uten område på temaene.
+    await user.click(screen.getByRole('button', { name: 'Endre Sikkerhet' }))
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+    await screen.findByRole('rowheader', { name: 'Sikkerhet' })
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as { schemaVersion: number; themes: object[] }
+    expect(saved.schemaVersion).toBe(6)
+    expect(saved.themes.some((theme) => 'areaId' in theme)).toBe(false)
     localStorage.clear()
   })
 })

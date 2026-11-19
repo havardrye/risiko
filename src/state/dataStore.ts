@@ -1,12 +1,6 @@
 import type { z } from 'zod'
 import type { Repository } from '../data/repository.ts'
-import {
-  isCodeTaken,
-  isNameTaken,
-  risksReferencing,
-  themesReferencing,
-  type ReferenceKind,
-} from '../domain/rules.ts'
+import { isCodeTaken, isNameTaken, risksReferencing, type ReferenceKind } from '../domain/rules.ts'
 import {
   areaInputSchema,
   ownerInputSchema,
@@ -47,22 +41,15 @@ export class DataError extends Error {
   readonly fieldErrors: FieldErrors
   /** Risikoene som hindrer sletting (K13, K16, K18). */
   readonly blockingRisks: readonly Risk[]
-  /** Temaene som hindrer sletting av et område (spec 006, K68). */
-  readonly blockingThemes: readonly Theme[]
 
   constructor(
     message: string,
-    options: {
-      fieldErrors?: FieldErrors
-      blockingRisks?: readonly Risk[]
-      blockingThemes?: readonly Theme[]
-    } = {},
+    options: { fieldErrors?: FieldErrors; blockingRisks?: readonly Risk[] } = {},
   ) {
     super(message)
     this.name = 'DataError'
     this.fieldErrors = options.fieldErrors ?? {}
     this.blockingRisks = options.blockingRisks ?? []
-    this.blockingThemes = options.blockingThemes ?? []
   }
 }
 
@@ -247,25 +234,10 @@ export class DataStore {
     if (!item) return
 
     const blockingRisks = risksReferencing(data.risks, kind, id)
-    // Et område kan også være i bruk av temaer (spec 006, K68).
-    const blockingThemes = kind === 'area' ? themesReferencing(data.themes, id) : []
-    if (blockingRisks.length > 0 || blockingThemes.length > 0) {
-      const parts = [
-        blockingRisks.length === 0
-          ? null
-          : blockingRisks.length === 1
-            ? '1 risiko'
-            : `${blockingRisks.length} risikoer`,
-        blockingThemes.length === 0
-          ? null
-          : blockingThemes.length === 1
-            ? '1 tema'
-            : `${blockingThemes.length} temaer`,
-      ].filter(Boolean)
-      throw new DataError(`«${item.name}» kan ikke slettes fordi ${parts.join(' og ')} bruker den.`, {
-        blockingRisks,
-        blockingThemes,
-      })
+    if (blockingRisks.length > 0) {
+      const count =
+        blockingRisks.length === 1 ? '1 risiko bruker' : `${blockingRisks.length} risikoer bruker`
+      throw new DataError(`«${item.name}» kan ikke slettes fordi ${count} den.`, { blockingRisks })
     }
 
     await this.commit({
@@ -322,11 +294,6 @@ export class DataStore {
     }
     if (isNameTaken(data[config.list], fields.name, excludeId)) {
       fieldErrors.name = 'Navnet er allerede i bruk.'
-    }
-    // Temaets område må finnes (spec 006, K63).
-    const areaId = (fields as { areaId?: string }).areaId
-    if (kind === 'theme' && areaId !== undefined && !data.areas.some((area) => area.id === areaId)) {
-      fieldErrors.areaId = 'Området finnes ikke lenger.'
     }
     if (Object.keys(fieldErrors).length > 0) {
       throw new DataError('Skjemaet har feil.', { fieldErrors })

@@ -11,12 +11,12 @@ const CREATED = '2026-11-01T08:00:00.000Z'
 
 function sample(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [
       { id: 'o1', code: 'E-1', name: 'Kari Nordmann', email: 'kari@example.no' },
       { id: 'o2', code: 'E-2', name: 'Ola Nordmann' },
     ],
-    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør', description: 'Innkjøp og avtaler', areaId: 'a1' }],
+    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør', description: 'Innkjøp og avtaler'}],
     areas: [
       { id: 'a1', code: 'O-1', name: 'IT' },
       { id: 'a2', code: 'O-2', name: 'Økonomi', description: 'Regnskap' },
@@ -59,11 +59,7 @@ function comparable(data: AppData) {
     list.find((item) => item.id === id)?.name
   return {
     owners: data.owners.map(({ id: _id, ...rest }) => rest),
-    // Temaets område sammenlignes på navn, siden interne id-er lages på nytt (spec 006).
-    themes: data.themes.map(({ id: _id, areaId, ...rest }) => ({
-      ...rest,
-      area: data.areas.find((area) => area.id === areaId)?.name,
-    })),
+    themes: data.themes.map(({ id: _id, ...rest }) => rest),
     areas: data.areas.map(({ id: _id, ...rest }) => rest),
     risks: data.risks.map(({ id: _id, createdAt: _c, updatedAt: _u, ownerId, themeId, areaId, ...rest }) => ({
       ...rest,
@@ -215,7 +211,7 @@ describe('writeTemplate (K33)', { timeout: 20_000 }, () => {
     const result = await importBlob(await writeTemplate())
     expect(result).toEqual({
       ok: true,
-      data: { schemaVersion: 5, owners: [], themes: [], areas: [], risks: [] },
+      data: { schemaVersion: 6, owners: [], themes: [], areas: [], risks: [] },
     })
   })
 
@@ -230,8 +226,8 @@ describe('writeTemplate (K33)', { timeout: 20_000 }, () => {
       })
     }
     fill('Eiere', [['E-1', 'Kari Nordmann', 'kari@example.no'], ['E-2', 'Ola Nordmann']])
-    fill('Temaer', [['T-1', 'Leverandør', 'O-1']])
-    fill('Områder', [['O-1', 'IT', '0 - 3 år']])
+    fill('Temaer', [['T-1', 'Leverandør']])
+    fill('Områder', [['O-1', 'IT']])
     fill('Risikoer', [
       ['R-1', 'Leverandør går konkurs', '', 'Trussel', 'E-1', 'T-1', 'O-1', 2, 5],
       ['R-2', 'Ny avtale', 'Bedre vilkår', 'Mulighet', 'E-2', 'T-1', 'O-1', 3, 4],
@@ -257,5 +253,18 @@ describe('veiledningen for ID-koblinger (spec 005, K61, K62)', { timeout: 20_000
     sheet?.eachRow((row) => row.eachCell((cell) => texts.push(String(cell.value))))
     expect(texts.some((text) => text.includes('Eier-ID, Tema-ID og Område-ID i fanen Risikoer må være ID-er'))).toBe(true)
     expect(texts.some((text) => text.includes('Score, Nivå, Eier, Tema og Område bakerst'))).toBe(true)
+  })
+
+  it('nevner ikke Område-ID eller informasjonskolonner i fanen Temaer (spec 008, K79)', async () => {
+    const sheet = (await load(await writeTemplate())).getWorksheet('Veiledning')
+    const texts: string[] = []
+    sheet?.eachRow((row) => row.eachCell((cell) => texts.push(String(cell.value))))
+    expect(texts.filter((text) => text.includes('fanen Temaer'))).toEqual([])
+    const temaRows: string[][] = []
+    sheet?.eachRow((row) => {
+      const values = (row.values as unknown[]).slice(1).map(String)
+      if (values[0] === 'Temaer') temaRows.push(values)
+    })
+    expect(temaRows.map((values) => values[1])).toEqual(['ID', 'Navn', 'Beskrivelse'])
   })
 })

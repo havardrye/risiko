@@ -86,7 +86,7 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
 
 ### D. Register over risikotemaer
 - **K15** Opprette, endre og slette temaer (navn påkrevd, unikt, beskrivelse valgfritt).
-- **K16** Et tema i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per tema. *(Utvidet av spec 006: et tema har også et område, K63–K67.)*
+- **K16** Et tema i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per tema. *(Spec 006 ga temaet et område, K63–K67. Det er opphevet av [spec 008](../008-fjern-omrade-pa-tema/spec.md), K75: et tema har ID, navn og beskrivelse.)*
 
 ### E. Register over risikoområder
 - **K17** Opprette, endre og slette områder (navn påkrevd, unikt, beskrivelse valgfritt, «Når?» påkrevd). *(«Når?» er fjernet av spec 007.)*
@@ -96,19 +96,19 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
 - Gitt et nytt område uten valgt «Når?», når bruker lagrer, så vises feilmelding ved feltet og ingenting lagres.
 - Gitt et område med «Når?» = «3 - 5 år», så vises «3 - 5 år» i områdelisten.
 - Gitt lagrede data eller en eksportfil fra før feltet fantes, når appen leser dem, så får alle områder «0 - 3 år», og ingenting avvises.
-- **K18** Et område i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per område. *(Utvidet av spec 006: et område som temaer bruker, kan heller ikke slettes, K68.)*
+- **K18** Et område i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per område. *(Spec 006 sperret også sletting av et område som temaer brukte, K68. Det er opphevet av [spec 008](../008-fjern-omrade-pa-tema/spec.md), K76: bare risikoer sperrer sletting.)*
 
 ### F. Lagring og deling
 - **K19** Data lagres lokalt i nettleseren og overlever omstart.
 - **K20** Bruker kan eksportere alle data til én JSON-fil og importere den igjen. Import validerer filen og viser feil uten å overskrive eksisterende data.
 - **K21** Ved import velger bruker å erstatte alle data (fletting er utenfor MVP).
-- **K22** Første gang appen åpnes er den tom, med et tomt register og en veiledning om å opprette eiere, temaer og områder først. *(Rekkefølgen er eier, område og så tema etter spec 006, K71.)* Knappen «Ny risiko» vises alltid. Mangler eier, tema eller område, åpner den en forklaring av hva som mangler, med lenker dit, i stedet for skjemaet. *(Endret 2026-11-17: knappen var tidligere skjult til alt fantes, og brukere trodde de ikke kunne legge inn risikoer.)*
+- **K22** Første gang appen åpnes er den tom, med et tomt register og en veiledning om å opprette eiere, temaer og områder først. *(Rekkefølgen er eier, tema og område. Spec 006 byttet om tema og område, K71, men det er opphevet av [spec 008](../008-fjern-omrade-pa-tema/spec.md), K78.)* Knappen «Ny risiko» vises alltid. Mangler eier, tema eller område, åpner den en forklaring av hva som mangler, med lenker dit, i stedet for skjemaet. *(Endret 2026-11-17: knappen var tidligere skjult til alt fantes, og brukere trodde de ikke kunne legge inn risikoer.)*
 - **K23** Appen viser et synlig, men diskret varsel om at data lagres kun i denne nettleseren, med snarvei til eksport.
 
 Import og eksport med Excel er beskrevet i [002-excel-import](../002-excel-import/spec.md) (K26–K35).
 Egne ID-er på risikoer, eiere, temaer og områder er beskrevet i [004-egne-id-er](../004-egne-id-er/spec.md) (K47–K55).
 At risikoer kobles til eier, tema og område med ID, i skjemaet og i Excel, er beskrevet i [005-id-koblinger](../005-id-koblinger/spec.md) (K57–K62).
-At hvert tema hører til et område, er beskrevet i [006-omrade-pa-tema](../006-omrade-pa-tema/spec.md) (K63–K70).
+At hvert tema hørte til et område, var beskrevet i [006-omrade-pa-tema](../006-omrade-pa-tema/spec.md) (K63–K71). Det er opphevet og fjernet igjen av [008-fjern-omrade-pa-tema](../008-fjern-omrade-pa-tema/spec.md) (K75–K79).
 At «Når?» er fjernet fra områder, er beskrevet i [007-fjern-nar](../007-fjern-nar/spec.md) (K72–K74).
 
 ## Avklarte beslutninger

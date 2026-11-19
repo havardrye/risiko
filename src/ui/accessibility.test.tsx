@@ -42,7 +42,7 @@ function risk(overrides: Partial<Risk> & Pick<Risk, 'id' | 'title'>): Risk {
 
 function seed(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [{ id: 'o1', name: 'Kari Nordmann', email: 'kari@example.com' }],
     themes: [{ id: 't1', name: 'Leverandør', description: 'Avhengighet av eksterne' }],
     areas: [{ id: 'a1', name: 'IT' }],
@@ -119,12 +119,12 @@ describe('tilgjengelighet (axe)', () => {
     expect(await violations()).toEqual([])
   })
 
-  it('temaskjema med område og feilmeldinger har ingen brudd (spec 006)', async () => {
+  it('temaskjema med feilmeldinger har ingen brudd (spec 008)', async () => {
     const { user } = renderApp({ route: '/temaer', data: seed() })
     await screen.findByRole('heading', { level: 1, name: 'Risikotemaer' })
     await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
     await user.click(screen.getByRole('button', { name: 'Lagre' }))
-    expect(screen.getByLabelText('Område')).toHaveAccessibleDescription('Område er påkrevd')
+    expect(screen.getByLabelText('Navn')).toHaveAccessibleDescription('Navn er påkrevd')
     expect(await violations()).toEqual([])
   })
 })

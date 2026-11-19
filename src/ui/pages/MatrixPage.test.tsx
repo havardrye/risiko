@@ -19,7 +19,7 @@ function risk(overrides: Partial<Risk> & Pick<Risk, 'id'>): Risk {
 
 function data(risks: Risk[]): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
     areas: [{ id: 'a1', name: 'IT' }],

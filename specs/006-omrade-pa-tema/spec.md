@@ -1,6 +1,6 @@
 # 006 – Område på tema
 
-Status: IMPLEMENTERT – alle krav K63–K71 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier.
+Status: OPPHEVET av [008-fjern-omrade-pa-tema](../008-fjern-omrade-pa-tema/spec.md) (2026-11-19). Alle krav K63–K71 gjelder ikke lenger: temaer har ikke område. Spec-en blir stående som historikk. Den ble implementert, men aldri godkjent av produkteier.
 Bygger på: [001-mvp](../001-mvp/spec.md) (K15–K18), [002-excel-import](../002-excel-import/spec.md), [004-egne-id-er](../004-egne-id-er/spec.md) og [005-id-koblinger](../005-id-koblinger/spec.md). Kravnumrene fortsetter etter K62, altså fra K63.
 
 ## Formål

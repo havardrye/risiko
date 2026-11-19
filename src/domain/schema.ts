@@ -11,10 +11,10 @@ import { z } from 'zod'
 /**
  * Versjon 2 la til «Når?» på områder (K25). Versjon 3 la til brukerens ID
  * (`code`, spec 004). Versjon 4 la til område på tema (`areaId`, spec 006).
- * Versjon 5 fjernet «Når?» fra områder (spec 007). Eldre data migreres i
- * data/migrations.ts.
+ * Versjon 5 fjernet «Når?» fra områder (spec 007). Versjon 6 fjernet område
+ * på tema igjen (spec 008). Eldre data migreres i data/migrations.ts.
  */
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6
 
 const idSchema = z.string().min(1)
 
@@ -48,21 +48,12 @@ export const ownerInputSchema = z.object({
 })
 export const ownerSchema = ownerInputSchema.extend({ ...storedCode, id: idSchema })
 
-const themeAreaSchema = z.string('Område er påkrevd').min(1, 'Område er påkrevd')
-
 export const themeInputSchema = z.object({
   code: codeSchema,
   name: requiredText('Navn er påkrevd'),
   description: optionalText,
-  /** Området temaet hører til (spec 006, K63), som intern id. */
-  areaId: themeAreaSchema,
 })
-/** I lagrede data er område valgfritt: temaer fra før spec 006 mangler det (K64). */
-export const themeSchema = themeInputSchema.extend({
-  ...storedCode,
-  areaId: themeAreaSchema.optional(),
-  id: idSchema,
-})
+export const themeSchema = themeInputSchema.extend({ ...storedCode, id: idSchema })
 
 export const areaInputSchema = z.object({
   code: codeSchema,

@@ -4,7 +4,7 @@ import { renderApp } from '../../test/renderApp.tsx'
 
 function references(): AppData {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     owners: [
       { id: 'o1', code: 'E-1', name: 'Ola Åsen' },
       { id: 'o2', code: 'E-2', name: 'Kari Nordmann' },
@@ -35,7 +35,7 @@ function optionTexts(select: HTMLElement) {
 }
 
 describe('veiledning før første risiko (K22)', () => {
-  it('lister alt som mangler, med lenker', async () => {
+  it('lister alt som mangler, med lenker, i rekkefølgen eier, tema, område (spec 008, K78)', async () => {
     await openPage()
     const guide = screen.getByRole('region', { name: 'Kom i gang' })
     expect(
@@ -44,8 +44,8 @@ describe('veiledning før første risiko (K22)', () => {
         .map((item) => item.textContent),
     ).toEqual([
       'minst én risikoeier, under Risikoeiere',
-      'minst ett risikoområde, under Risikoområder',
       'minst ett risikotema, under Risikotemaer',
+      'minst ett risikoområde, under Risikoområder',
     ])
   })
 

@@ -89,12 +89,9 @@ export interface RiskRow {
   area: string
 }
 
-/** Et tema slik det står i filen: området er en ID, ikke en intern id (spec 006, K69). */
-export type ThemeRow = Omit<ThemeInput, 'areaId'> & { area: string }
-
 export interface ParsedSheets {
   owners: ParsedRow<OwnerInput>[]
-  themes: ParsedRow<ThemeRow>[]
+  themes: ParsedRow<ThemeInput>[]
   areas: ParsedRow<AreaInput>[]
   risks: ParsedRow<RiskRow>[]
   /** Rader med feil er ikke med i listene over, bare her. */
@@ -250,12 +247,7 @@ const ratingConverter: Converter = interpretRating
 const textOnly = (value: string | number) => ({ ok: true as const, value: String(value) })
 
 const OWNERS: RowSchema<'code' | 'name' | 'email'> = { sheet: OWNER_SHEET, convert: {}, schema: ownerInputSchema }
-/** Temaer i filen: som appens skjema, men med områdets ID i stedet for intern id. */
-const THEMES: RowSchema<'code' | 'name' | 'area' | 'description'> = {
-  sheet: THEME_SHEET,
-  convert: { area: textOnly },
-  schema: themeInputSchema.omit({ areaId: true }).extend({ area: z.string() }),
-}
+const THEMES: RowSchema<'code' | 'name' | 'description'> = { sheet: THEME_SHEET, convert: {}, schema: themeInputSchema }
 const AREAS: RowSchema<'code' | 'name' | 'description'> = { sheet: AREA_SHEET, convert: {}, schema: areaInputSchema }
 const RISKS: RowSchema<keyof RiskRow> = {
   sheet: RISK_SHEET,
@@ -279,7 +271,7 @@ export function parseSheets(workbook: WorkbookRows): ParsedSheets {
   const errors: CellError[] = []
   const risks = parseSheet<keyof RiskRow, RiskRow>(workbook, RISKS, errors)
   const owners = parseSheet<'code' | 'name' | 'email', OwnerInput>(workbook, OWNERS, errors)
-  const themes = parseSheet<'code' | 'name' | 'area' | 'description', ThemeRow>(workbook, THEMES, errors)
+  const themes = parseSheet<'code' | 'name' | 'description', ThemeInput>(workbook, THEMES, errors)
   const areas = parseSheet<'code' | 'name' | 'description', AreaInput>(workbook, AREAS, errors)
   const rejected = ({ sheetRead, codes }: RejectedRows): RejectedRows => ({ sheetRead, codes })
   return {
@@ -374,28 +366,8 @@ export function parseWorkbook(workbook: WorkbookRows, options: ParseOptions = {}
   }
 
   const owners: Owner[] = sheets.owners.map(({ value }) => ({ id: newId(), ...value }))
-  // Områdene bygges før temaene, slik at temaene kan slå opp området sitt på ID (spec 006, K69).
+  const themes: Theme[] = sheets.themes.map(({ value }) => ({ id: newId(), ...value }))
   const areas: Area[] = sheets.areas.map(({ value }) => ({ id: newId(), ...value }))
-  const themes: Theme[] = sheets.themes.map(({ rowNumber, value }) => {
-    const { area: areaCode, ...fields } = value
-    const area = findByCode(areas, areaCode)
-    if (!area) {
-      // Følgefeil unngås: fanen Områder ble ikke lest, eller raden med ID-en har egne feil.
-      const rejected = sheets.rejected.areas
-      const explained =
-        !rejected.sheetRead || rejected.codes.some((other) => normalizeName(other) === normalizeName(areaCode))
-      if (!explained) {
-        errors.push({
-          sheet: THEME_SHEET.name,
-          row: rowNumber,
-          column: 'Område-ID',
-          message: `Ingen område har ID «${areaCode}» i fanen «${AREA_SHEET.name}»`,
-        })
-      }
-    }
-    // Temaet tas med også når området mangler, så risikoer som viser til det, ikke får følgefeil.
-    return { id: newId(), ...fields, ...(area ? { areaId: area.id } : {}) }
-  })
 
   // Første forekomst vinner; like ID-er er allerede meldt som feil.
   const lookup = { owners, themes, areas }
