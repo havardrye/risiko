@@ -1,4 +1,4 @@
-import type { Horizon, Rating, RiskType } from './schema.ts'
+import type { Rating, RiskType } from './schema.ts'
 import type { Level } from './scoring.ts'
 
 /** Tekster, nivånavn og farger for skalaene (spec: Skalaer, K7, K10). */
@@ -9,18 +9,6 @@ export const RISK_TYPE_LABELS: Record<RiskType, string> = {
   threat: 'Trussel',
   opportunity: 'Mulighet',
 }
-
-/** Valgene for «Når?» på et område, i den rekkefølgen de vises (K25). */
-export const HORIZONS = ['0-3', '3-5', '5+'] as const satisfies readonly Horizon[]
-
-export const HORIZON_LABELS: Record<Horizon, string> = {
-  '0-3': '0 - 3 år',
-  '3-5': '3 - 5 år',
-  '5+': '5 år +',
-}
-
-/** Verdien eksisterende områder får når de migreres (avklart beslutning 7). */
-export const DEFAULT_HORIZON: Horizon = '0-3'
 
 export const LIKELIHOOD_LABELS: Record<Rating, string> = {
   1: 'Svært lav',

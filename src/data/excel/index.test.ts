@@ -9,8 +9,8 @@ function sample(): AppData {
   return {
     ...emptyAppData(),
     owners: [{ id: 'o1', code: 'E-1', name: 'Kari Nordmann' }],
-    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', code: 'O-1', name: 'IT', horizon: '0-3' }],
+    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør', areaId: 'a1' }],
+    areas: [{ id: 'a1', code: 'O-1', name: 'IT' }],
     risks: [
       {
         id: 'r1',

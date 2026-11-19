@@ -42,10 +42,10 @@ function risk(overrides: Partial<Risk> & Pick<Risk, 'id' | 'title'>): Risk {
 
 function seed(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 5,
     owners: [{ id: 'o1', name: 'Kari Nordmann', email: 'kari@example.com' }],
     themes: [{ id: 't1', name: 'Leverandør', description: 'Avhengighet av eksterne' }],
-    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
+    areas: [{ id: 'a1', name: 'IT' }],
     risks: [
       risk({ id: 'r1', title: 'Datainnbrudd' }),
       risk({ id: 'r2', title: 'Ny støtteordning', type: 'opportunity', likelihood: 3 }),
@@ -116,6 +116,15 @@ describe('tilgjengelighet (axe)', () => {
       new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04])], 'register.xlsx'),
     )
     await screen.findByRole('dialog', { name: 'Kan ikke importere filen' })
+    expect(await violations()).toEqual([])
+  })
+
+  it('temaskjema med område og feilmeldinger har ingen brudd (spec 006)', async () => {
+    const { user } = renderApp({ route: '/temaer', data: seed() })
+    await screen.findByRole('heading', { level: 1, name: 'Risikotemaer' })
+    await user.click(screen.getByRole('button', { name: 'Nytt tema' }))
+    await user.click(screen.getByRole('button', { name: 'Lagre' }))
+    expect(screen.getByLabelText('Område')).toHaveAccessibleDescription('Område er påkrevd')
     expect(await violations()).toEqual([])
   })
 })

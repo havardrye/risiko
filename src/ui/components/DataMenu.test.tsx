@@ -15,10 +15,10 @@ vi.mock('../../data/excel/index.ts', async (importOriginal) => ({
 
 function current(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 5,
     owners: [{ id: 'o1', name: 'Kari Nordmann' }],
     themes: [{ id: 't1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
+    areas: [{ id: 'a1', name: 'IT' }],
     risks: [
       {
         id: 'r1',
@@ -38,13 +38,13 @@ function current(): AppData {
 
 function imported(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 5,
     owners: [
       { id: 'x1', name: 'Per Hansen' },
       { id: 'x2', name: 'Ola Åsen' },
     ],
     themes: [{ id: 'y1', name: 'Sikkerhet' }],
-    areas: [{ id: 'z1', name: 'Økonomi', horizon: '0-3' }],
+    areas: [{ id: 'z1', name: 'Økonomi' }],
     risks: [
       {
         id: 'q1',
@@ -278,7 +278,7 @@ describe('import fra Excel (K26, K28, K31, K32)', () => {
       message: 'Filen har 2 feil. Rett dem i Excel og importer på nytt.',
       details: [
         'Risikoer, rad 7, Eier: «Ola Nordman» finnes ikke i fanen «Eiere»',
-        'Områder, rad 3, Når?: «2 år» er ikke en lovlig verdi. Bruk «0 - 3 år», «3 - 5 år» eller «5 år +».',
+        'Temaer, rad 3, Område-ID: Ingen område har ID «O-9» i fanen «Områder»',
       ],
     })
     const { user, fileInput, repository } = await openApp()
@@ -294,7 +294,7 @@ describe('import fra Excel (K26, K28, K31, K32)', () => {
         .map((item) => item.textContent),
     ).toEqual([
       'Risikoer, rad 7, Eier: «Ola Nordman» finnes ikke i fanen «Eiere»',
-      'Områder, rad 3, Når?: «2 år» er ikke en lovlig verdi. Bruk «0 - 3 år», «3 - 5 år» eller «5 år +».',
+      'Temaer, rad 3, Område-ID: Ingen område har ID «O-9» i fanen «Områder»',
     ])
     expect(save).not.toHaveBeenCalled()
   })

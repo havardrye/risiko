@@ -4,13 +4,13 @@ import { renderApp } from '../../test/renderApp.tsx'
 
 function references(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 5,
     owners: [
       { id: 'o1', code: 'E-1', name: 'Ola Åsen' },
       { id: 'o2', code: 'E-2', name: 'Kari Nordmann' },
     ],
     themes: [{ id: 't1', code: 'T-1', name: 'Leverandør' }],
-    areas: [{ id: 'a1', code: 'O-1', name: 'IT', horizon: '0-3' }],
+    areas: [{ id: 'a1', code: 'O-1', name: 'IT' }],
     risks: [],
   }
 }
@@ -44,8 +44,8 @@ describe('veiledning før første risiko (K22)', () => {
         .map((item) => item.textContent),
     ).toEqual([
       'minst én risikoeier, under Risikoeiere',
-      'minst ett risikotema, under Risikotemaer',
       'minst ett risikoområde, under Risikoområder',
+      'minst ett risikotema, under Risikotemaer',
     ])
   })
 

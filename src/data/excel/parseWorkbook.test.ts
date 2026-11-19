@@ -1,5 +1,4 @@
 import {
-  interpretHorizon,
   interpretRating,
   interpretRiskType,
   parseSheets,
@@ -46,8 +45,11 @@ const norm = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('n
  *    «Ri-1», «Ei-2». Faner som allerede har ID-kolonne, og helt tomme rader,
  *    blir stående som de er.
  * 2. I Risikoer kan Eier-ID, Tema-ID og Område-ID skrives med *navn*
- *    (spec 005). Navn som finnes i fanen de viser til, byttes ut med ID-en
- *    der. Andre verdier blir stående, så tester av ukjente ID-er virker.
+ *    (spec 005), og det samme gjelder Område-ID i Temaer (spec 006). Navn som
+ *    finnes i fanen de viser til, byttes ut med ID-en der. Andre verdier blir
+ *    stående, så tester av ukjente ID-er virker.
+ * 3. Temaer uten kolonnen Område-ID får den, med første område i fanen
+ *    Områder for hver rad som ikke er tom (spec 006).
  * Tester av selve kolonnene bruker `workbook()` direkte.
  */
 function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellValue[][]> {
@@ -67,6 +69,21 @@ function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellVa
     }),
   ) as Record<string, CellValue[][]>
 
+  // Temaer uten Område-ID får første område (spec 006).
+  const areaEntry = Object.entries(coded).find(([name]) => norm(name) === 'områder')
+  const firstArea = areaEntry
+    ? (areaEntry[1].slice(1).find((row) => !row.every(isBlank)) ?? [])[
+        (areaEntry[1][0] ?? []).findIndex((header) => norm(header) === 'id')
+      ] ?? null
+    : null
+  for (const [name, [headers = [], ...rows]] of Object.entries(coded)) {
+    if (norm(name) !== 'temaer' || headers.some((header) => norm(header) === 'område-id')) continue
+    coded[name] = [
+      [...headers, 'Område-ID'],
+      ...rows.map((cells) => [...cells, cells.every(isBlank) ? null : firstArea]),
+    ]
+  }
+
   // Navn → ID i fanene Eiere, Temaer og Områder.
   const codeByName = (sheetName: string) => {
     const entry = Object.entries(coded).find(([name]) => norm(name) === sheetName)
@@ -79,7 +96,7 @@ function withCodes(sheets: Record<string, CellValue[][]>): Record<string, CellVa
 
   return Object.fromEntries(
     Object.entries(coded).map(([name, [headers = [], ...rows]]) => {
-      if (norm(name) !== 'risikoer') return [name, [headers, ...rows]]
+      if (norm(name) !== 'risikoer' && norm(name) !== 'temaer') return [name, [headers, ...rows]]
       const translations = headers.map((header) => {
         const target = REFERENCE_SHEETS[norm(header)]
         return target ? codeByName(target) : undefined
@@ -122,9 +139,9 @@ describe('parseSheets – gyldig fil', () => {
     const result = parseSheets(validFile())
     expect(result.errors).toEqual([])
     expect(result.owners).toEqual([{ rowNumber: 2, value: { code: 'Ei-1', name: 'Kari Nordmann', email: 'kari@example.no' } }])
-    expect(result.themes).toEqual([{ rowNumber: 2, value: { code: 'Te-1', name: 'Leverandør' } }])
+    expect(result.themes).toEqual([{ rowNumber: 2, value: { code: 'Te-1', name: 'Leverandør', area: 'Om-1' } }])
     expect(result.areas).toEqual([
-      { rowNumber: 2, value: { code: 'Om-1', name: 'IT', horizon: '0-3', description: 'Drift og utvikling' } },
+      { rowNumber: 2, value: { code: 'Om-1', name: 'IT', description: 'Drift og utvikling' } },
     ])
     expect(result.risks).toEqual([
       {
@@ -160,12 +177,12 @@ describe('parseSheets – gyldig fil', () => {
       }),
     )
     expect(result.errors).toEqual([])
-    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør' })
+    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør', area: 'Om-1' })
   })
 
   it('trimmer tekst og lar tomme valgfrie felt være tomme', () => {
     const result = parseSheets(validFile({ Temaer: [['Navn', 'Beskrivelse'], ['  Leverandør  ', '   ']] }))
-    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør' })
+    expect(result.themes[0].value).toEqual({ code: 'Te-1', name: 'Leverandør', area: 'Om-1' })
   })
 
   it('godtar tall som tekst og tall som tall', () => {
@@ -223,9 +240,9 @@ describe('parseSheets – faner og kolonner (K30)', () => {
 
   it('melder hver påkrevd kolonne som mangler, én gang, og leser ikke radene', () => {
     const result = parseSheets(
-      validFile({ Områder: [['Navn', 'Beskrivelse'], ['IT', null], ['Økonomi', null]] }),
+      validFile({ Områder: [['ID', 'Beskrivelse'], ['O-1', null], ['O-2', null]] }),
     )
-    expect(result.errors.map(formatCellError)).toEqual(['Områder, Når?: Kolonnen «Når?» mangler'])
+    expect(result.errors.map(formatCellError)).toEqual(['Områder, Navn: Kolonnen «Navn» mangler'])
     expect(result.areas).toEqual([])
   })
 
@@ -270,14 +287,6 @@ describe('parseSheets – ugyldige verdier (K28)', () => {
         validFile({ Risikoer: [RISK_HEADERS, ['A', null, 'Fare', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1]] }),
       ),
     ).toEqual(['Risikoer, rad 2, Type: «Fare» er ikke en lovlig verdi. Bruk «Trussel» eller «Mulighet».'])
-  })
-
-  it('melder «Når?» = «2 år» med de lovlige verdiene (akseptkriterium)', () => {
-    expect(
-      errorsOf(validFile({ Områder: [['Navn', 'Når?'], ['IT', '0 - 3 år'], ['Økonomi', '2 år']] })),
-    ).toEqual([
-      'Områder, rad 3, Når?: «2 år» er ikke en lovlig verdi. Bruk «0 - 3 år», «3 - 5 år» eller «5 år +».',
-    ])
   })
 
   it('melder sannsynlighet og konsekvens utenfor 1–5 eller ikke heltall', () => {
@@ -327,13 +336,6 @@ describe('tolking av verdier', () => {
   it('type uten hensyn til store og små bokstaver', () => {
     expect(interpretRiskType('TRUSSEL')).toEqual({ ok: true, value: 'threat' })
     expect(interpretRiskType('Mulighet')).toEqual({ ok: true, value: 'opportunity' })
-  })
-
-  it('«Når?» uten hensyn til mellomrom', () => {
-    expect(interpretHorizon('0-3 år')).toEqual({ ok: true, value: '0-3' })
-    expect(interpretHorizon('3 - 5 ÅR')).toEqual({ ok: true, value: '3-5' })
-    expect(interpretHorizon('5år+')).toEqual({ ok: true, value: '5+' })
-    expect(interpretHorizon('0-3').ok).toBe(false)
   })
 
   it('tall 1–5 som tall eller tekst', () => {
@@ -390,7 +392,7 @@ describe('parseWorkbook – gyldig fil (K26)', () => {
     expect([data.owners.length, data.themes.length, data.areas.length, data.risks.length]).toEqual([
       3, 2, 2, 10,
     ])
-    expect(data.schemaVersion).toBe(3)
+    expect(data.schemaVersion).toBe(5)
 
     const nameOf = (list: readonly { id: string; name: string }[], id: string) =>
       list.find((item) => item.id === id)?.name
@@ -402,7 +404,6 @@ describe('parseWorkbook – gyldig fil (K26)', () => {
       expect(risk.likelihood).toBe((index % 5) + 1)
       expect(risk.type).toBe(index % 2 === 0 ? 'threat' : 'opportunity')
     })
-    expect(data.areas.map((area) => area.horizon)).toEqual(['0-3', '5+'])
   })
 
   it('gir nye id-er og setter datoene til importtidspunktet', () => {
@@ -490,11 +491,11 @@ describe('parseWorkbook – helheten (K28, K29)', () => {
   })
 
   it('gir ikke følgefeil når fanen mangler eller mangler kolonner', () => {
-    const file = validFile({ Områder: [['Navn'], ['IT']] })
+    const file = validFile({ Områder: [['ID', 'Beskrivelse'], ['O-1', 'Drift']] })
     delete file.Eiere
     expect(failures(file)).toEqual([
       'Eiere: Fanen «Eiere» mangler',
-      'Områder, Når?: Kolonnen «Når?» mangler',
+      'Områder, Navn: Kolonnen «Navn» mangler',
     ])
   })
 
@@ -569,7 +570,7 @@ describe('ID i Excel (spec 004, K51–K53)', () => {
     const file = workbook({
       Risikoer: [RISK_HEADERS, ['A', null, 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1]],
       Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']],
-      Temaer: [['ID', 'Navn'], ['T-1', 'Leverandør']],
+      Temaer: [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 'O-1']],
       Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år']],
     })
     expect(failures(file)).toEqual(['Risikoer, ID: Kolonnen «ID» mangler'])
@@ -596,7 +597,7 @@ describe('Risikoer viser til ID (spec 005, K60)', () => {
         ['R-1', 'A', 'Trussel', 'Kari Nordmann', 'Leverandør', 'IT', 1, 1],
       ],
       Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']],
-      Temaer: [['ID', 'Navn'], ['T-1', 'Leverandør']],
+      Temaer: [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 'O-1']],
       Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år']],
     })
     expect(failures(file)).toEqual([
@@ -613,7 +614,7 @@ describe('Risikoer viser til ID (spec 005, K60)', () => {
         ['R-1', 'A', 'Trussel', 'Kari Nordmann', 'T-1', 'O-1', 1, 1],
       ],
       Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']],
-      Temaer: [['ID', 'Navn'], ['T-1', 'Leverandør']],
+      Temaer: [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 'O-1']],
       Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år']],
     })
     expect(failures(file)).toEqual(['Risikoer, rad 2, Eier-ID: Ingen eier har ID «Kari Nordmann» i fanen «Eiere»'])
@@ -626,11 +627,71 @@ describe('Risikoer viser til ID (spec 005, K60)', () => {
         ['R-1', 'A', 'Trussel', 'E-1', 'T-1', 'O-1', 1, 1, 'Feil navn', 'Feil tema', 'Feil område'],
       ],
       Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']],
-      Temaer: [['ID', 'Navn'], ['T-1', 'Leverandør']],
+      Temaer: [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 'O-1']],
       Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år']],
     })
     const result = parse(file)
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data.risks[0]?.ownerId).toBe(result.data.owners[0]?.id)
+  })
+})
+
+describe('Område-ID i fanen Temaer (spec 006, K69, K70)', () => {
+  const base = () => ({
+    Risikoer: [
+      ['ID', 'Tittel', 'Type', 'Eier-ID', 'Tema-ID', 'Område-ID', 'Sannsynlighet', 'Konsekvens'],
+      ['R-1', 'A', 'Trussel', 'E-1', 'T-1', 'O-1', 1, 1],
+    ] as CellValue[][],
+    Eiere: [['ID', 'Navn'], ['E-1', 'Kari Nordmann']] as CellValue[][],
+    Temaer: [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 'O-2']] as CellValue[][],
+    Områder: [['ID', 'Navn', 'Når?'], ['O-1', 'IT', '0 - 3 år'], ['O-2', 'Økonomi', '5 år +']] as CellValue[][],
+  })
+
+  it('kobler temaet til området med ID-en', () => {
+    const result = parse(workbook(base()))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const theme = result.data.themes[0]
+    expect(result.data.areas.find((area) => area.id === theme?.areaId)?.name).toBe('Økonomi')
+  })
+
+  it('melder en område-ID som ingen har, med fane, rad og kolonne (akseptkriterium)', () => {
+    const file = base()
+    file.Temaer = [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 'O-9']]
+    expect(failures(workbook(file))).toEqual(['Temaer, rad 2, Område-ID: Ingen område har ID «O-9» i fanen «Områder»'])
+  })
+
+  it('avviser en fil uten kolonnen Område-ID i Temaer (akseptkriterium)', () => {
+    const file = base()
+    file.Temaer = [['ID', 'Navn'], ['T-1', 'Leverandør']]
+    expect(failures(workbook(file))).toEqual(['Temaer, Område-ID: Kolonnen «Område-ID» mangler'])
+  })
+
+  it('krever Område-ID på hvert tema', () => {
+    const file = base()
+    file.Temaer = [['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', null]]
+    expect(failures(workbook(file))).toEqual(['Temaer, rad 2, Område-ID: Område-ID er påkrevd'])
+  })
+
+  it('ignorerer informasjonskolonnen Område', () => {
+    const file = base()
+    file.Temaer = [['ID', 'Navn', 'Område-ID', 'Område'], ['T-1', 'Leverandør', 'O-2', 'Feil navn']]
+    expect(parse(workbook(file)).ok).toBe(true)
+  })
+
+  it('gir ikke følgefeil når raden med området selv har feil', () => {
+    const file = base()
+    file.Områder = [['ID', 'Navn'], ['O-1', 'IT'], ['O-2', null]]
+    expect(failures(workbook(file))).toEqual(['Områder, rad 3, Navn: Navn er påkrevd'])
+  })
+})
+
+describe('Områder uten «Når?» (spec 007, K74)', () => {
+  it('importerer en eldre fil med kolonnen «Når?» og ignorerer den (akseptkriterium)', () => {
+    const result = parse(
+      validFile({ Områder: [['ID', 'Navn', 'Når?', 'Beskrivelse'], ['O-1', 'IT', 'tull', 'Drift']] }),
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.areas[0]).toEqual({ id: expect.any(String), code: 'O-1', name: 'IT', description: 'Drift' })
   })
 })

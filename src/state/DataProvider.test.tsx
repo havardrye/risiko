@@ -6,10 +6,10 @@ import { useDataState, useDataStore, useOwners, useRisks } from './dataContext.t
 import { DataStore } from './dataStore.ts'
 
 const data: AppData = {
-  schemaVersion: 3,
+  schemaVersion: 5,
   owners: [{ id: 'o1', name: 'Kari Nordmann' }],
   themes: [{ id: 't1', name: 'Leverandør' }],
-  areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
+  areas: [{ id: 'a1', name: 'IT' }],
   risks: [],
 }
 

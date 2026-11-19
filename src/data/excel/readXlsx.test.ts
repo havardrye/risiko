@@ -127,7 +127,7 @@ describe('readXlsx (K26, K27)', { timeout: 20_000 }, () => {
     risks.addRow(['R-1', 'Leverandør går konkurs', 'Trussel', 'E-1', 'T-1', 7, 2, 5])
     workbook.addWorksheet('Eiere').addRow(['ID', 'Navn'])
     workbook.getWorksheet('Eiere')?.addRow(['E-1', { text: 'Kari Nordmann', hyperlink: 'mailto:kari@example.no' }])
-    workbook.addWorksheet('Temaer').addRows([['ID', 'Navn'], ['T-1', 'Leverandør']])
+    workbook.addWorksheet('Temaer').addRows([['ID', 'Navn', 'Område-ID'], ['T-1', 'Leverandør', 7]])
     workbook.addWorksheet('Områder').addRows([['ID', 'Navn', 'Når?'], [7, 'IT', '0 - 3 år']])
 
     const result = parseWorkbook(await read(workbook))

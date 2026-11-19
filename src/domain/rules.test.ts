@@ -8,6 +8,7 @@ import {
   isNameTaken,
   normalizeName,
   risksReferencing,
+  themesReferencing,
 } from './rules.ts'
 import type { AppData, Risk } from './schema.ts'
 
@@ -33,15 +34,15 @@ const owners = [
 
 function validData(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 5,
     owners,
     themes: [
       { id: 't1', name: 'Leverandør' },
       { id: 't2', name: 'Sikkerhet' },
     ],
     areas: [
-      { id: 'a1', name: 'IT', horizon: '0-3' },
-      { id: 'a2', name: 'Økonomi', horizon: '0-3' },
+      { id: 'a1', name: 'IT' },
+      { id: 'a2', name: 'Økonomi' },
     ],
     risks: [
       risk({ id: 'r1', ownerId: 'o1', themeId: 't1', areaId: 'a1' }),
@@ -118,7 +119,7 @@ describe('findIntegrityErrors', () => {
   it('godtar gyldige og tomme data', () => {
     expect(findIntegrityErrors(validData())).toEqual([])
     expect(
-      findIntegrityErrors({ schemaVersion: 3, owners: [], themes: [], areas: [], risks: [] }),
+      findIntegrityErrors({ schemaVersion: 5, owners: [], themes: [], areas: [], risks: [] }),
     ).toEqual([])
   })
 
@@ -152,7 +153,7 @@ describe('findIntegrityErrors', () => {
 
   it('tillater samme navn i ulike registre', () => {
     const data = validData()
-    data.areas = [...data.areas, { id: 'a3', name: 'Sikkerhet', horizon: '0-3' }]
+    data.areas = [...data.areas, { id: 'a3', name: 'Sikkerhet' }]
     expect(findIntegrityErrors(data)).toEqual([])
   })
 
@@ -261,5 +262,23 @@ describe('findByCode (spec 005, K57, K60)', () => {
     expect(findByCode(items, '')).toBeUndefined()
     expect(findByCode(items, '   ')).toBeUndefined()
     expect(findByCode([{ id: 'x', code: '' }], '')).toBeUndefined()
+  })
+})
+
+describe('område på tema (spec 006)', () => {
+  it('themesReferencing gir temaene som hører til området', () => {
+    const themes = [
+      { id: 't1', name: 'A', areaId: 'a1' },
+      { id: 't2', name: 'B', areaId: 'a2' },
+      { id: 't3', name: 'C' },
+    ]
+    expect(themesReferencing(themes, 'a1').map((theme) => theme.id)).toEqual(['t1'])
+    expect(themesReferencing(themes, 'a9')).toEqual([])
+  })
+
+  it('melder et tema som viser til et område som ikke finnes', () => {
+    const data = validData()
+    data.themes = [{ ...data.themes[0]!, areaId: 'a1' }, { ...data.themes[1]!, areaId: 'borte' }]
+    expect(findIntegrityErrors(data)).toEqual(['Temaet «Sikkerhet» viser til område som ikke finnes.'])
   })
 })

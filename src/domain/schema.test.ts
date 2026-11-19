@@ -115,7 +115,7 @@ describe('referanseregistre', () => {
 
   it('godtar tema og område med og uten beskrivelse', () => {
     expect(themeSchema.safeParse({ id: 't1', name: 'Leverandør' }).success).toBe(true)
-    expect(areaSchema.safeParse({ id: 'a1', name: 'IT', description: 'Drift', horizon: '0-3' }).success).toBe(true)
+    expect(areaSchema.safeParse({ id: 'a1', name: 'IT', description: 'Drift' }).success).toBe(true)
   })
 
   it('avviser tema og område uten navn', () => {
@@ -131,16 +131,16 @@ describe('appDataSchema', () => {
 
   it('godtar et fullt datasett', () => {
     const data = {
-      schemaVersion: 3,
+      schemaVersion: 5,
       owners: [{ id: 'o1', name: 'Kari' }],
       themes: [{ id: 't1', name: 'Leverandør' }],
-      areas: [{ id: 'a1', name: 'IT', horizon: '0-3' }],
+      areas: [{ id: 'a1', name: 'IT' }],
       risks: [validRisk],
     }
     expect(appDataSchema.safeParse(data).success).toBe(true)
   })
 
-  it.each([0, 1, 2, 4, '3', undefined])('avviser schemaVersion %s', (version) => {
+  it.each([0, 1, 2, 3, 4, 6, '5', undefined])('avviser schemaVersion %s', (version) => {
     expect(appDataSchema.safeParse({ ...emptyAppData(), schemaVersion: version }).success).toBe(false)
   })
 
@@ -175,7 +175,7 @@ describe('ID (code, spec 004)', () => {
 
   it('er valgfri i lagrede data, slik at elementer fra før kan mangle ID (beslutning 5)', () => {
     expect(ownerSchema.safeParse({ id: 'o1', name: 'Kari' }).success).toBe(true)
-    expect(areaSchema.safeParse({ id: 'a1', name: 'IT', horizon: '0-3' }).success).toBe(true)
+    expect(areaSchema.safeParse({ id: 'a1', name: 'IT' }).success).toBe(true)
     expect(riskSchema.safeParse(validRisk).success).toBe(true)
   })
 
@@ -190,5 +190,17 @@ describe('ID (code, spec 004)', () => {
 
   it('kontrolleres også i lagrede data', () => {
     expect(ownerSchema.safeParse({ id: 'o1', code: 'x'.repeat(21), name: 'Kari' }).success).toBe(false)
+  })
+})
+
+describe('område på tema (spec 006)', () => {
+  it('lagres som intern id og er valgfritt i lagrede data (K64)', () => {
+    expect(themeSchema.parse({ id: 't1', name: 'Leverandør', areaId: 'a1' }).areaId).toBe('a1')
+    expect(themeSchema.safeParse({ id: 't1', name: 'Leverandør' }).success).toBe(true)
+  })
+
+  it('avviser tom tekst med «Område er påkrevd»', () => {
+    const result = themeSchema.safeParse({ id: 't1', name: 'Leverandør', areaId: '' })
+    expect(result.error?.issues[0]?.message).toBe('Område er påkrevd')
   })
 })

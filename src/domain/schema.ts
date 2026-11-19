@@ -10,9 +10,11 @@ import { z } from 'zod'
 
 /**
  * Versjon 2 la til «Når?» på områder (K25). Versjon 3 la til brukerens ID
- * (`code`, spec 004). Eldre data migreres i data/migrations.ts.
+ * (`code`, spec 004). Versjon 4 la til område på tema (`areaId`, spec 006).
+ * Versjon 5 fjernet «Når?» fra områder (spec 007). Eldre data migreres i
+ * data/migrations.ts.
  */
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 5
 
 const idSchema = z.string().min(1)
 
@@ -46,21 +48,26 @@ export const ownerInputSchema = z.object({
 })
 export const ownerSchema = ownerInputSchema.extend({ ...storedCode, id: idSchema })
 
+const themeAreaSchema = z.string('Område er påkrevd').min(1, 'Område er påkrevd')
+
 export const themeInputSchema = z.object({
   code: codeSchema,
   name: requiredText('Navn er påkrevd'),
   description: optionalText,
+  /** Området temaet hører til (spec 006, K63), som intern id. */
+  areaId: themeAreaSchema,
 })
-export const themeSchema = themeInputSchema.extend({ ...storedCode, id: idSchema })
-
-/** «Når?» på et område (K25). Visningstekstene ligger i domain/scales.ts. */
-export const horizonSchema = z.enum(['0-3', '3-5', '5+'], '«Når?» er påkrevd')
+/** I lagrede data er område valgfritt: temaer fra før spec 006 mangler det (K64). */
+export const themeSchema = themeInputSchema.extend({
+  ...storedCode,
+  areaId: themeAreaSchema.optional(),
+  id: idSchema,
+})
 
 export const areaInputSchema = z.object({
   code: codeSchema,
   name: requiredText('Navn er påkrevd'),
   description: optionalText,
-  horizon: horizonSchema,
 })
 export const areaSchema = areaInputSchema.extend({ ...storedCode, id: idSchema })
 
@@ -107,7 +114,6 @@ export const appDataSchema = z.object({
 export type Id = z.infer<typeof idSchema>
 export type Rating = z.infer<typeof ratingSchema>
 export type RiskType = z.infer<typeof riskTypeSchema>
-export type Horizon = z.infer<typeof horizonSchema>
 
 export type OwnerInput = z.infer<typeof ownerInputSchema>
 export type Owner = z.infer<typeof ownerSchema>

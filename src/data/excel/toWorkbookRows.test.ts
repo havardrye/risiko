@@ -6,18 +6,18 @@ const CREATED = '2026-11-01T08:00:00.000Z'
 
 function sample(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 5,
     owners: [
       { id: 'o1', code: 'E-1', name: 'Kari Nordmann', email: 'kari@example.no' },
       { id: 'o2', code: 'E-2', name: 'Ola Nordmann' },
     ],
     themes: [
-      { id: 't1', code: 'T-1', name: 'Leverandør', description: 'Innkjøp og avtaler' },
-      { id: 't2', code: 'T-2', name: 'Informasjonssikkerhet' },
+      { id: 't1', code: 'T-1', name: 'Leverandør', description: 'Innkjøp og avtaler', areaId: 'a1' },
+      { id: 't2', code: 'T-2', name: 'Informasjonssikkerhet', areaId: 'a2' },
     ],
     areas: [
-      { id: 'a1', code: 'O-1', name: 'IT', horizon: '0-3' },
-      { id: 'a2', code: 'O-2', name: 'Økonomi', horizon: '5+', description: 'Regnskap og lønn' },
+      { id: 'a1', code: 'O-1', name: 'IT' },
+      { id: 'a2', code: 'O-2', name: 'Økonomi', description: 'Regnskap og lønn' },
     ],
     risks: [
       {
@@ -72,8 +72,8 @@ describe('toWorkbookRows (K35)', () => {
       'Område',
     ])
     expect(rows.Eiere.headers).toEqual(['ID', 'Navn', 'E-post'])
-    expect(rows.Temaer.headers).toEqual(['ID', 'Navn', 'Beskrivelse'])
-    expect(rows.Områder.headers).toEqual(['ID', 'Navn', 'Når?', 'Beskrivelse'])
+    expect(rows.Temaer.headers).toEqual(['ID', 'Navn', 'Område-ID', 'Beskrivelse', 'Område'])
+    expect(rows.Områder.headers).toEqual(['ID', 'Navn', 'Beskrivelse'])
   })
 
   it('skriver risikoer med ID-er, visningstekster, score, nivå og navnene bakerst', () => {
@@ -126,18 +126,18 @@ describe('toWorkbookRows (K35)', () => {
       ['E-2', 'Ola Nordmann', null],
     ])
     expect(rows.Temaer.rows.map((row) => row.cells)).toEqual([
-      ['T-1', 'Leverandør', 'Innkjøp og avtaler'],
-      ['T-2', 'Informasjonssikkerhet', null],
+      ['T-1', 'Leverandør', 'O-1', 'Innkjøp og avtaler', 'IT'],
+      ['T-2', 'Informasjonssikkerhet', 'O-2', null, 'Økonomi'],
     ])
     expect(rows.Områder.rows.map((row) => row.cells)).toEqual([
-      ['O-1', 'IT', '0 - 3 år', null],
-      ['O-2', 'Økonomi', '5 år +', 'Regnskap og lønn'],
+      ['O-1', 'IT', null],
+      ['O-2', 'Økonomi', 'Regnskap og lønn'],
     ])
   })
 
   it('gir tomme faner med overskrifter for et tomt datasett (malen, K33)', () => {
-    const rows = toWorkbookRows({ schemaVersion: 3, owners: [], themes: [], areas: [], risks: [] })
-    expect(rows.Områder).toEqual({ headers: ['ID', 'Navn', 'Når?', 'Beskrivelse'], rows: [] })
+    const rows = toWorkbookRows({ schemaVersion: 5, owners: [], themes: [], areas: [], risks: [] })
+    expect(rows.Områder).toEqual({ headers: ['ID', 'Navn', 'Beskrivelse'], rows: [] })
     expect(rows.Risikoer.rows).toEqual([])
   })
 
@@ -149,7 +149,11 @@ describe('toWorkbookRows (K35)', () => {
 
     const withoutIds = (data: AppData) => ({
       owners: data.owners.map(({ id: _id, ...rest }) => rest),
-      themes: data.themes.map(({ id: _id, ...rest }) => rest),
+      // Temaets område sammenlignes på navn, siden interne id-er lages på nytt (spec 006).
+      themes: data.themes.map(({ id: _id, areaId, ...rest }) => ({
+        ...rest,
+        area: data.areas.find((area) => area.id === areaId)?.name,
+      })),
       areas: data.areas.map(({ id: _id, ...rest }) => rest),
       risks: data.risks.map(({ id: _id, createdAt: _c, updatedAt: _u, ownerId, themeId, areaId, ...rest }) => ({
         ...rest,

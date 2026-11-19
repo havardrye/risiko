@@ -2,12 +2,13 @@ import {
   AREA_SHEET,
   OWNER_SHEET,
   RISK_INFO_COLUMNS,
+  THEME_INFO_COLUMNS,
   RISK_SHEET,
   THEME_SHEET,
   type ColumnSpec,
   type SheetSpec,
 } from '../../domain/excelFormat.ts'
-import { HORIZON_LABELS, levelStyle, RISK_TYPE_LABELS } from '../../domain/scales.ts'
+import { levelStyle, RISK_TYPE_LABELS } from '../../domain/scales.ts'
 import type { AppData, Id } from '../../domain/schema.ts'
 import { level, score } from '../../domain/scoring.ts'
 import type { CellValue, SheetRows, WorkbookRows } from './workbookRows.ts'
@@ -77,12 +78,15 @@ export function toWorkbookRows(data: AppData): WorkbookRows {
       OWNER_SHEET,
       data.owners.map((owner) => ({ code: text(owner.code), name: owner.name, email: text(owner.email) })),
     ),
-    [THEME_SHEET.name]: sheet(
-      THEME_SHEET,
+    [THEME_SHEET.name]: sheetRows(
+      [...THEME_SHEET.columns, ...THEME_INFO_COLUMNS],
       data.themes.map((theme) => ({
         code: text(theme.code),
         name: theme.name,
+        // Områdets ID, eller tom celle når temaet mangler område eller området mangler ID (spec 006).
+        area: theme.areaId === undefined ? null : codeOf(data.areas, theme.areaId),
         description: text(theme.description),
+        areaName: theme.areaId === undefined ? null : nameOf(areas, theme.areaId),
       })),
     ),
     [AREA_SHEET.name]: sheet(
@@ -90,7 +94,6 @@ export function toWorkbookRows(data: AppData): WorkbookRows {
       data.areas.map((area) => ({
         code: text(area.code),
         name: area.name,
-        horizon: HORIZON_LABELS[area.horizon],
         description: text(area.description),
       })),
     ),

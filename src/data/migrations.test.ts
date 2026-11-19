@@ -31,16 +31,16 @@ function version1() {
 }
 
 describe('migrate', () => {
-  it('støtter versjon 1, 2 og 3', () => {
-    expect(SUPPORTED_VERSIONS).toEqual([1, 2, 3])
+  it('støtter versjon 1–5', () => {
+    expect(SUPPORTED_VERSIONS).toEqual([1, 2, 3, 4, 5])
   })
 
-  it('gir alle områder «0 - 3 år» ved løft fra versjon 1 (beslutning 7)', () => {
+  it('løfter versjon 1 helt til gjeldende versjon, uten «Når?» (spec 007)', () => {
     const migrated = migrate(version1())
-    expect(migrated.schemaVersion).toBe(3)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.areas).toEqual([
-      { id: 'a1', name: 'IT', horizon: '0-3' },
-      { id: 'a2', name: 'Økonomi', description: 'Regnskap og lønn', horizon: '0-3' },
+      { id: 'a1', name: 'IT' },
+      { id: 'a2', name: 'Økonomi', description: 'Regnskap og lønn' },
     ])
   })
 
@@ -58,9 +58,9 @@ describe('migrate', () => {
     expect(original).toEqual(version1())
   })
 
-  it('beholder en verdi som allerede finnes', () => {
+  it('fjerner også «Når?» som var satt i versjon 1', () => {
     const data = { ...version1(), areas: [{ id: 'a1', name: 'IT', horizon: '5+' }] }
-    expect(migrate(data).areas).toEqual([{ id: 'a1', name: 'IT', horizon: '5+' }])
+    expect(migrate(data).areas).toEqual([{ id: 'a1', name: 'IT' }])
   })
 
   it('lar gjeldende versjon være som den er', () => {
@@ -78,8 +78,8 @@ describe('eldre data i appen (K25, akseptkriterium)', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(version1()))
     const data = await new LocalStorageRepository().load()
 
-    expect(data.schemaVersion).toBe(3)
-    expect(data.areas.map((area) => area.horizon)).toEqual(['0-3', '0-3'])
+    expect(data.schemaVersion).toBe(5)
+    expect(data.areas.some((area) => 'horizon' in area)).toBe(false)
     expect(data.risks).toHaveLength(1)
   })
 
@@ -94,27 +94,14 @@ describe('eldre data i appen (K25, akseptkriterium)', () => {
     const result = parseImportFile(JSON.stringify(version1(), null, 2))
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.data.schemaVersion).toBe(3)
-      expect(result.data.areas.every((area) => area.horizon === '0-3')).toBe(true)
+      expect(result.data.schemaVersion).toBe(5)
+      expect(result.data.areas.some((area) => 'horizon' in area)).toBe(false)
     }
   })
 
-  it('avviser fortsatt et område i versjon 2 uten «Når?»', () => {
+  it('godtar et område i versjon 2 uten «Når?», nå som feltet er fjernet (spec 007)', () => {
     const data = { ...version1(), schemaVersion: 2 }
-    const result = parseImportFile(JSON.stringify(data))
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.details).toContain('areas.0.horizon: «Når?» er påkrevd')
-  })
-
-  it('avviser en ukjent verdi for «Når?»', () => {
-    const data = {
-      ...version1(),
-      schemaVersion: 2,
-      areas: [{ id: 'a1', name: 'IT', horizon: '10 år' }],
-      risks: [],
-    }
-    const result = parseImportFile(JSON.stringify(data))
-    expect(result.ok).toBe(false)
+    expect(parseImportFile(JSON.stringify(data)).ok).toBe(true)
   })
 })
 
@@ -126,7 +113,7 @@ describe('versjon 2 → 3 (spec 004, egne ID-er)', () => {
   it('løfter versjonen og endrer ingen data (beslutning 5)', () => {
     const original = version2()
     const migrated = migrate(original)
-    expect(migrated).toEqual({ ...original, schemaVersion: 3 })
+    expect(migrated).toEqual({ ...original, schemaVersion: 5 })
   })
 
   it('gir ingen elementer en ID', () => {
@@ -137,14 +124,77 @@ describe('versjon 2 → 3 (spec 004, egne ID-er)', () => {
   it('leser en eksportfil i versjon 2 uten feil', () => {
     const result = parseImportFile(JSON.stringify(version2()))
     expect(result.ok).toBe(true)
-    if (result.ok) expect(result.data.schemaVersion).toBe(3)
+    if (result.ok) expect(result.data.schemaVersion).toBe(5)
   })
 
   it('avviser en nyere versjon med riktig melding', () => {
-    const result = parseImportFile(JSON.stringify({ ...version2(), schemaVersion: 4 }))
+    const result = parseImportFile(JSON.stringify({ ...version2(), schemaVersion: 6 }))
     expect(result).toMatchObject({
       ok: false,
-      message: 'Innholdet har versjon 4, men appen støtter bare versjon 1–3.',
+      message: 'Innholdet har versjon 6, men appen støtter bare versjon 1–5.',
     })
+  })
+})
+
+describe('versjon 3 → 4 (spec 006, område på tema)', () => {
+  function version3() {
+    return { ...migrate(version1()), schemaVersion: 3 }
+  }
+
+  it('løfter versjonen og endrer ingen data (K64)', () => {
+    const original = version3()
+    expect(migrate(original)).toEqual({ ...original, schemaVersion: 5 })
+  })
+
+  it('gir ingen temaer et område', () => {
+    const migrated = migrate(version3()) as { themes: object[] }
+    expect(migrated.themes.some((theme) => 'areaId' in theme)).toBe(false)
+  })
+
+  it('leser en eksportfil i versjon 3 uten feil', () => {
+    const result = parseImportFile(JSON.stringify(version3()))
+    expect(result.ok && result.data.schemaVersion).toBe(5)
+  })
+})
+
+describe('versjon 4 → 5 (spec 007, «Når?» fjernet)', () => {
+  function version4() {
+    return {
+      ...migrate(version1()),
+      schemaVersion: 4,
+      areas: [
+        { id: 'a1', name: 'IT', horizon: '0-3' },
+        { id: 'a2', name: 'Økonomi', description: 'Regnskap og lønn', horizon: '5+' },
+      ],
+    }
+  }
+
+  it('sletter «Når?» fra alle områder og løfter versjonen (K73, beslutning 1)', () => {
+    const migrated = migrate(version4())
+    expect(migrated.schemaVersion).toBe(5)
+    expect(migrated.areas).toEqual([
+      { id: 'a1', name: 'IT' },
+      { id: 'a2', name: 'Økonomi', description: 'Regnskap og lønn' },
+    ])
+  })
+
+  it('endrer ikke resten av datasettet', () => {
+    const original = version4()
+    const { areas: _a, schemaVersion: _v, ...rest } = migrate(original)
+    const { areas: _oa, schemaVersion: _ov, ...originalRest } = original
+    expect(rest).toEqual(originalRest)
+  })
+
+  it('leser lagrede data i versjon 4 med «Når?» uten feil (akseptkriterium)', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(version4()))
+    const data = await new LocalStorageRepository().load()
+    expect(data.schemaVersion).toBe(5)
+    expect(data.areas.some((area) => 'horizon' in area)).toBe(false)
+  })
+
+  it('importerer en JSON-eksport fra før endringen (akseptkriterium)', () => {
+    const result = parseImportFile(JSON.stringify(version4(), null, 2))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.areas.map((area) => area.name)).toEqual(['IT', 'Økonomi'])
   })
 })

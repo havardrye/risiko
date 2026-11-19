@@ -86,28 +86,30 @@ Referanse: [referanse/risikomatrise.png](referanse/risikomatrise.png).
 
 ### D. Register over risikotemaer
 - **K15** Opprette, endre og slette temaer (navn påkrevd, unikt, beskrivelse valgfritt).
-- **K16** Et tema i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per tema.
+- **K16** Et tema i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per tema. *(Utvidet av spec 006: et tema har også et område, K63–K67.)*
 
 ### E. Register over risikoområder
-- **K17** Opprette, endre og slette områder (navn påkrevd, unikt, beskrivelse valgfritt, «Når?» påkrevd).
-- **K25** Hvert område har feltet **«Når?»**, som velges fra en nedtrekksmeny med verdiene «0 - 3 år», «3 - 5 år» og «5 år +». Feltet er påkrevd ved opprettelse og endring, og vises som egen kolonne i områdelisten. Områder som finnes fra før, og områder i eldre eksportfiler, får «0 - 3 år» automatisk (se avklart beslutning 7). *(Lagt til 2026-11-18.)*
+- **K17** Opprette, endre og slette områder (navn påkrevd, unikt, beskrivelse valgfritt, «Når?» påkrevd). *(«Når?» er fjernet av spec 007.)*
+- **K25** Hvert område har feltet **«Når?»**, som velges fra en nedtrekksmeny med verdiene «0 - 3 år», «3 - 5 år» og «5 år +». Feltet er påkrevd ved opprettelse og endring, og vises som egen kolonne i områdelisten. Områder som finnes fra før, og områder i eldre eksportfiler, får «0 - 3 år» automatisk (se avklart beslutning 7). *(Lagt til 2026-11-18.)* *(Opphevet av [spec 007](../007-fjern-nar/spec.md), K72–K74: «Når?» er fjernet.)*
 
 **Akseptkriterier (K25)**
 - Gitt et nytt område uten valgt «Når?», når bruker lagrer, så vises feilmelding ved feltet og ingenting lagres.
 - Gitt et område med «Når?» = «3 - 5 år», så vises «3 - 5 år» i områdelisten.
 - Gitt lagrede data eller en eksportfil fra før feltet fantes, når appen leser dem, så får alle områder «0 - 3 år», og ingenting avvises.
-- **K18** Et område i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per område.
+- **K18** Et område i bruk kan ikke slettes, tilsvarende K13. Listen viser antall risikoer per område. *(Utvidet av spec 006: et område som temaer bruker, kan heller ikke slettes, K68.)*
 
 ### F. Lagring og deling
 - **K19** Data lagres lokalt i nettleseren og overlever omstart.
 - **K20** Bruker kan eksportere alle data til én JSON-fil og importere den igjen. Import validerer filen og viser feil uten å overskrive eksisterende data.
 - **K21** Ved import velger bruker å erstatte alle data (fletting er utenfor MVP).
-- **K22** Første gang appen åpnes er den tom, med et tomt register og en veiledning om å opprette eiere, temaer og områder først. Knappen «Ny risiko» vises alltid. Mangler eier, tema eller område, åpner den en forklaring av hva som mangler, med lenker dit, i stedet for skjemaet. *(Endret 2026-11-17: knappen var tidligere skjult til alt fantes, og brukere trodde de ikke kunne legge inn risikoer.)*
+- **K22** Første gang appen åpnes er den tom, med et tomt register og en veiledning om å opprette eiere, temaer og områder først. *(Rekkefølgen er eier, område og så tema etter spec 006, K71.)* Knappen «Ny risiko» vises alltid. Mangler eier, tema eller område, åpner den en forklaring av hva som mangler, med lenker dit, i stedet for skjemaet. *(Endret 2026-11-17: knappen var tidligere skjult til alt fantes, og brukere trodde de ikke kunne legge inn risikoer.)*
 - **K23** Appen viser et synlig, men diskret varsel om at data lagres kun i denne nettleseren, med snarvei til eksport.
 
 Import og eksport med Excel er beskrevet i [002-excel-import](../002-excel-import/spec.md) (K26–K35).
 Egne ID-er på risikoer, eiere, temaer og områder er beskrevet i [004-egne-id-er](../004-egne-id-er/spec.md) (K47–K55).
 At risikoer kobles til eier, tema og område med ID, i skjemaet og i Excel, er beskrevet i [005-id-koblinger](../005-id-koblinger/spec.md) (K57–K62).
+At hvert tema hører til et område, er beskrevet i [006-omrade-pa-tema](../006-omrade-pa-tema/spec.md) (K63–K70).
+At «Når?» er fjernet fra områder, er beskrevet i [007-fjern-nar](../007-fjern-nar/spec.md) (K72–K74).
 
 ## Avklarte beslutninger
 1. **Deling:** MVP bruker lokal lagring per nettleser. Delt backend er en senere spec. Derfor skal lagring ligge bak `Repository`-grensesnittet (se constitution). Eksport/import (K20) er eneste måte å dele på i MVP.
@@ -116,7 +118,7 @@ At risikoer kobles til eier, tema og område med ID, i skjemaet og i Excel, er b
 4. **Eiere:** Eierlisten er en egen liste, uavhengig av hvem som bruker appen. *(Antatt standard, ikke eksplisitt bekreftet.)*
 5. **Status:** Ikke i MVP.
 6. **Unntaket i nivåtabellen:** Sannsynlighet 1 med konsekvens 4 er nivå 2, slik referansebildet viser. Bekreftet tilsiktet.
-7. **Eksisterende områder og «Når?» (K25):** Områder som mangler feltet, i nettleseren eller i eksportfiler fra før endringen, settes til «0 - 3 år». Bekreftet 2026-11-18. Verdien er en standard, ikke en vurdering, så brukerne bør gå gjennom områdene etterpå.
+7. **Eksisterende områder og «Når?» (K25):** Områder som mangler feltet, i nettleseren eller i eksportfiler fra før endringen, settes til «0 - 3 år». Bekreftet 2026-11-18. Verdien er en standard, ikke en vurdering, så brukerne bør gå gjennom områdene etterpå. *(Ikke lenger aktuell: «Når?» er fjernet av spec 007.)*
 8. **Nivånavn for muligheter (K10):** «Liten», «Middels» og «Stor», som i tabellen i K10. Bekreftet 2026-11-18.
 
 ## Åpne spørsmål

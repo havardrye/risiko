@@ -1,5 +1,5 @@
 import { normalizeName } from './rules.ts'
-import { HORIZON_LABELS, HORIZONS, RISK_TYPE_LABELS, RISK_TYPES } from './scales.ts'
+import { RISK_TYPE_LABELS, RISK_TYPES } from './scales.ts'
 
 /**
  * Excel-formatet (spec 002, K26, K33, K35): faner, kolonner og faste verdier.
@@ -9,7 +9,6 @@ import { HORIZON_LABELS, HORIZONS, RISK_TYPE_LABELS, RISK_TYPES } from './scales
 
 /** Lovlige verdier i kolonnene som har faste valg (nedtrekkslister i malen). */
 export const RISK_TYPE_CHOICES: readonly string[] = RISK_TYPES.map((type) => RISK_TYPE_LABELS[type])
-export const HORIZON_CHOICES: readonly string[] = HORIZONS.map((horizon) => HORIZON_LABELS[horizon])
 export const RATING_CHOICES: readonly string[] = ['1', '2', '3', '4', '5']
 
 export interface ColumnSpec<K extends string = string> {
@@ -42,21 +41,22 @@ export const OWNER_SHEET: SheetSpec<'code' | 'name' | 'email'> = {
   ],
 }
 
-export const THEME_SHEET: SheetSpec<'code' | 'name' | 'description'> = {
+export const THEME_SHEET: SheetSpec<'code' | 'name' | 'area' | 'description'> = {
   name: 'Temaer',
   columns: [
     CODE_COLUMN,
     { key: 'name', header: 'Navn', required: true, width: 30 },
+    // Området temaet hører til, angitt med ID (spec 006, K69). Navnet står som informasjon bakerst.
+    { key: 'area', header: 'Område-ID', required: true, width: 12 },
     { key: 'description', header: 'Beskrivelse', required: false, width: 60 },
   ],
 }
 
-export const AREA_SHEET: SheetSpec<'code' | 'name' | 'horizon' | 'description'> = {
+export const AREA_SHEET: SheetSpec<'code' | 'name' | 'description'> = {
   name: 'Områder',
   columns: [
     CODE_COLUMN,
     { key: 'name', header: 'Navn', required: true, width: 30 },
-    { key: 'horizon', header: 'Når?', required: true, choices: HORIZON_CHOICES, width: 12 },
     { key: 'description', header: 'Beskrivelse', required: false, width: 60 },
   ],
 }
@@ -100,6 +100,17 @@ export const RISK_INFO_COLUMNS: readonly ColumnSpec<'score' | 'level' | 'ownerNa
   { key: 'themeName', header: 'Tema', required: false, width: 24 },
   { key: 'areaName', header: 'Område', required: false, width: 24 },
 ]
+
+/** Navnet til områdets ID bakerst i Temaer (spec 006, K70). Leses ikke ved import. */
+export const THEME_INFO_COLUMNS: readonly ColumnSpec<'areaName'>[] = [
+  { key: 'areaName', header: 'Område', required: false, width: 24 },
+]
+
+/** Informasjonskolonnene per fane, etter de vanlige kolonnene. */
+export const INFO_COLUMNS: Readonly<Record<string, readonly ColumnSpec[]>> = {
+  Risikoer: RISK_INFO_COLUMNS,
+  Temaer: THEME_INFO_COLUMNS,
+}
 
 /** Fanen med veiledning først i malen og eksporten (K33). Ignoreres ved import. */
 export const GUIDE_SHEET_NAME = 'Veiledning'

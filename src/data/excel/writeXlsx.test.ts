@@ -11,15 +11,15 @@ const CREATED = '2026-11-01T08:00:00.000Z'
 
 function sample(): AppData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 5,
     owners: [
       { id: 'o1', code: 'E-1', name: 'Kari Nordmann', email: 'kari@example.no' },
       { id: 'o2', code: 'E-2', name: 'Ola Nordmann' },
     ],
-    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør', description: 'Innkjøp og avtaler' }],
+    themes: [{ id: 't1', code: 'T-1', name: 'Leverandør', description: 'Innkjøp og avtaler', areaId: 'a1' }],
     areas: [
-      { id: 'a1', code: 'O-1', name: 'IT', horizon: '3-5' },
-      { id: 'a2', code: 'O-2', name: 'Økonomi', horizon: '5+', description: 'Regnskap' },
+      { id: 'a1', code: 'O-1', name: 'IT' },
+      { id: 'a2', code: 'O-2', name: 'Økonomi', description: 'Regnskap' },
     ],
     risks: [
       {
@@ -59,7 +59,11 @@ function comparable(data: AppData) {
     list.find((item) => item.id === id)?.name
   return {
     owners: data.owners.map(({ id: _id, ...rest }) => rest),
-    themes: data.themes.map(({ id: _id, ...rest }) => rest),
+    // Temaets område sammenlignes på navn, siden interne id-er lages på nytt (spec 006).
+    themes: data.themes.map(({ id: _id, areaId, ...rest }) => ({
+      ...rest,
+      area: data.areas.find((area) => area.id === areaId)?.name,
+    })),
     areas: data.areas.map(({ id: _id, ...rest }) => rest),
     risks: data.risks.map(({ id: _id, createdAt: _c, updatedAt: _u, ownerId, themeId, areaId, ...rest }) => ({
       ...rest,
@@ -174,7 +178,7 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
     }
   })
 
-  it('har nedtrekkslister på Type, Sannsynlighet, Konsekvens og «Når?» (K33)', async () => {
+  it('har nedtrekkslister på Type, Sannsynlighet og Konsekvens, og ingen i Områder (K33, spec 007)', async () => {
     const workbook = await load(await writeXlsx(sample()))
     const risks = workbook.getWorksheet('Risikoer')
     const areas = workbook.getWorksheet('Områder')
@@ -184,7 +188,8 @@ describe('writeXlsx (K35)', { timeout: 20_000 }, () => {
     expect(risks?.getCell('D2').dataValidation).toEqual(list('"Trussel,Mulighet"'))
     expect(risks?.getCell(`H${VALIDATION_LAST_ROW}`).dataValidation).toEqual(list('"1,2,3,4,5"'))
     expect(risks?.getCell('I50').dataValidation).toEqual(list('"1,2,3,4,5"'))
-    expect(areas?.getCell('C2').dataValidation).toEqual(list('"0 - 3 år,3 - 5 år,5 år +"'))
+    // «Når?» er fjernet (spec 007, K74): Områder har ingen nedtrekksliste.
+    for (const cell of ['A2', 'B2', 'C2']) expect(areas?.getCell(cell).dataValidation).toBeUndefined()
 
     expect(risks?.getCell('A2').dataValidation).toBeUndefined()
     expect(risks?.getCell('B2').dataValidation).toBeUndefined()
@@ -210,7 +215,7 @@ describe('writeTemplate (K33)', { timeout: 20_000 }, () => {
     const result = await importBlob(await writeTemplate())
     expect(result).toEqual({
       ok: true,
-      data: { schemaVersion: 3, owners: [], themes: [], areas: [], risks: [] },
+      data: { schemaVersion: 5, owners: [], themes: [], areas: [], risks: [] },
     })
   })
 
@@ -225,7 +230,7 @@ describe('writeTemplate (K33)', { timeout: 20_000 }, () => {
       })
     }
     fill('Eiere', [['E-1', 'Kari Nordmann', 'kari@example.no'], ['E-2', 'Ola Nordmann']])
-    fill('Temaer', [['T-1', 'Leverandør']])
+    fill('Temaer', [['T-1', 'Leverandør', 'O-1']])
     fill('Områder', [['O-1', 'IT', '0 - 3 år']])
     fill('Risikoer', [
       ['R-1', 'Leverandør går konkurs', '', 'Trussel', 'E-1', 'T-1', 'O-1', 2, 5],

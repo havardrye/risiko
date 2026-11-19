@@ -69,8 +69,9 @@ export function RisksPage() {
   // En risiko må ha eier, tema og område, så de må finnes før skjemaet kan brukes (K22).
   const missing = [
     { count: owners.length, text: 'minst én risikoeier', route: ROUTES.owners },
-    { count: themes.length, text: 'minst ett risikotema', route: ROUTES.themes },
+    // Område før tema: et tema hører til et område (spec 006).
     { count: areas.length, text: 'minst ett risikoområde', route: ROUTES.areas },
+    { count: themes.length, text: 'minst ett risikotema', route: ROUTES.themes },
   ].filter((item) => item.count === 0)
   const canCreate = missing.length === 0
   const missingList = (

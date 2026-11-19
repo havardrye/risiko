@@ -4,7 +4,6 @@ import {
   findColumns,
   findSheetName,
   GUIDE_SHEET_NAME,
-  HORIZON_CHOICES,
   OWNER_SHEET,
   RATING_CHOICES,
   RISK_INFO_COLUMNS,
@@ -37,6 +36,7 @@ describe('Excel-formatet (K26)', () => {
     expect(described(THEME_SHEET)).toEqual([
       ['ID', true],
       ['Navn', true],
+      ['Område-ID', true],
       ['Beskrivelse', false],
     ])
   })
@@ -45,7 +45,6 @@ describe('Excel-formatet (K26)', () => {
     expect(described(AREA_SHEET)).toEqual([
       ['ID', true],
       ['Navn', true],
-      ['Når?', true],
       ['Beskrivelse', false],
     ])
   })
@@ -66,7 +65,6 @@ describe('Excel-formatet (K26)', () => {
 
   it('har faste valg med de samme tekstene som appen', () => {
     expect(RISK_TYPE_CHOICES).toEqual(['Trussel', 'Mulighet'])
-    expect(HORIZON_CHOICES).toEqual(['0 - 3 år', '3 - 5 år', '5 år +'])
     expect(RATING_CHOICES).toEqual(['1', '2', '3', '4', '5'])
 
     const choices = (sheet: SheetSpec, header: string) =>
@@ -74,7 +72,7 @@ describe('Excel-formatet (K26)', () => {
     expect(choices(RISK_SHEET, 'Type')).toBe(RISK_TYPE_CHOICES)
     expect(choices(RISK_SHEET, 'Sannsynlighet')).toBe(RATING_CHOICES)
     expect(choices(RISK_SHEET, 'Konsekvens')).toBe(RATING_CHOICES)
-    expect(choices(AREA_SHEET, 'Når?')).toBe(HORIZON_CHOICES)
+    expect(AREA_SHEET.columns.some((column) => column.choices)).toBe(false)
   })
 
   it('har informasjonskolonnene Score, Nivå, Eier, Tema og Område utenfor importformatet (K35, K61)', () => {
@@ -96,18 +94,18 @@ describe('findColumns', () => {
   })
 
   it('tåler store bokstaver og doble mellomrom', () => {
-    expect(findColumns(['  NAVN', 'når?'], AREA_SHEET).indexes).toEqual({ name: 0, horizon: 1 })
+    expect(findColumns(['  NAVN', 'beskrivelse '], AREA_SHEET).indexes).toEqual({ name: 0, description: 1 })
   })
 
   it('ignorerer ukjente kolonner', () => {
-    const lookup = findColumns(['Notat', 'ID', 'Navn', 'Score'], THEME_SHEET)
-    expect(lookup.indexes).toEqual({ code: 1, name: 2 })
+    const lookup = findColumns(['Notat', 'ID', 'Navn', 'Score', 'Område-ID'], THEME_SHEET)
+    expect(lookup.indexes).toEqual({ code: 1, name: 2, area: 4 })
     expect(lookup.missing).toEqual([])
   })
 
   it('melder påkrevde kolonner som mangler, men ikke valgfrie', () => {
     const { missing } = findColumns(['Navn', 'Beskrivelse'], AREA_SHEET)
-    expect(missing.map((column) => column.header)).toEqual(['ID', 'Når?'])
+    expect(missing.map((column) => column.header)).toEqual(['ID'])
   })
 
   it('melder kolonner som står to ganger', () => {

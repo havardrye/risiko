@@ -5,11 +5,8 @@ import {
   RISK_TYPE_LABELS,
   RISK_TYPES,
 } from '../../domain/scales.ts'
-import { findByCode } from '../../domain/rules.ts'
 import {
   CODE_MAX_LENGTH,
-  type AppData,
-  type Id,
   type Rating,
   type Risk,
   type RiskInput,
@@ -18,6 +15,12 @@ import {
 import { level, RATINGS, score } from '../../domain/scoring.ts'
 import { useAppData, useDataStore } from '../../state/dataContext.ts'
 import { DataError } from '../../state/dataStore.ts'
+import {
+  initialReferenceText,
+  resolveReferenceText,
+  showsMissingCode,
+  type ReferenceText,
+} from '../codeReference.ts'
 import { CodeCombobox } from './CodeCombobox.tsx'
 import { DialogActions } from './Dialog.tsx'
 import { FormField } from './FormField.tsx'
@@ -47,46 +50,6 @@ const REFERENCE_FIELDS: Record<ReferenceField, { label: string; noun: string; li
 
 const FIELD_ORDER: readonly ReferenceField[] = ['ownerId', 'themeId', 'areaId']
 
-/** Merknaden etter navnet når elementet mangler ID (K59). */
-const MISSING_SUFFIX = ' (mangler ID)'
-
-/** Teksten i feltet og om brukeren har endret den. */
-interface ReferenceText {
-  text: string
-  edited: boolean
-}
-
-/**
- * Det feltet viser når skjemaet åpnes: ID-en, eller «Navn (mangler ID)» for
- * elementer fra før spec 004 (K59). Tomt for en ny risiko.
- */
-function initialText(data: AppData, field: ReferenceField, risk: Risk | undefined): ReferenceText {
-  const item = risk ? data[REFERENCE_FIELDS[field].list].find((candidate) => candidate.id === risk[field]) : undefined
-  if (!item) return { text: '', edited: false }
-  return { text: item.code ?? `${item.name}${MISSING_SUFFIX}`, edited: false }
-}
-
-/**
- * Gjør teksten om til intern id (K57, K59). Er feltet uendret og elementet
- * mangler ID, beholdes koblingen. Gir id-en eller en feilmelding.
- */
-function resolveReference(
-  data: AppData,
-  field: ReferenceField,
-  value: ReferenceText,
-  risk: Risk | undefined,
-): { id: Id } | { error: string } {
-  const { label, noun, list } = REFERENCE_FIELDS[field]
-  if (risk && !value.edited) {
-    const current = data[list].find((item) => item.id === risk[field])
-    if (current && current.code === undefined) return { id: current.id }
-  }
-  const text = value.text.trim()
-  if (text === '') return { error: `${label} er påkrevd` }
-  const found = findByCode(data[list], text)
-  return found ? { id: found.id } : { error: `Ingen ${noun} har ID «${text}».` }
-}
-
 /**
  * Skjema for å opprette eller endre en risiko (spec K1–K3). Score og nivå
  * vises fortløpende, og konsekvenstekstene følger valgt type.
@@ -105,9 +68,9 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
     consequence: risk ? String(risk.consequence) : '',
   })
   const [references, setReferences] = useState<Record<ReferenceField, ReferenceText>>(() => ({
-    ownerId: initialText(data, 'ownerId', risk),
-    themeId: initialText(data, 'themeId', risk),
-    areaId: initialText(data, 'areaId', risk),
+    ownerId: initialReferenceText(data.owners, risk?.ownerId),
+    themeId: initialReferenceText(data.themes, risk?.themeId),
+    areaId: initialReferenceText(data.areas, risk?.areaId),
   }))
   const [type, setType] = useState<RiskType>(risk?.type ?? 'threat')
   const [formError, setFormError] = useState<string>()
@@ -144,7 +107,12 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
     const referenceErrors: Record<string, string> = {}
     const ids = {} as Record<ReferenceField, string>
     for (const field of FIELD_ORDER) {
-      const result = resolveReference(data, field, references[field], risk)
+      const result = resolveReferenceText(
+        data[REFERENCE_FIELDS[field].list],
+        references[field],
+        risk?.[field],
+        REFERENCE_FIELDS[field],
+      )
       if ('id' in result) ids[field] = result.id
       else {
         ids[field] = ''
@@ -242,7 +210,7 @@ export function RiskForm({ risk, onDone }: RiskFormProps) {
                 value={references[field].text}
                 onChange={changeReference(field)}
                 options={options[field]}
-                selectOnFocus={!references[field].edited && references[field].text.endsWith(MISSING_SUFFIX)}
+                selectOnFocus={showsMissingCode(references[field])}
               />
             )}
           </FormField>
