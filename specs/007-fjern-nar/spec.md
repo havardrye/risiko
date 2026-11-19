@@ -1,6 +1,6 @@
 # 007 – Fjern «Når?» fra områder
 
-Status: IMPLEMENTERT – alle krav K72–K74 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier.
+Status: GODKJENT 2026-11-19 av produkteier. Alle krav K72–K74 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Endringer skjer som nye krav eller en ny spec.
 Bygger på: [001-mvp](../001-mvp/spec.md) (K17, K25), [002-excel-import](../002-excel-import/spec.md) og [006-omrade-pa-tema](../006-omrade-pa-tema/spec.md). Kravnumrene fortsetter etter K71, altså fra K72.
 
 ## Formål
