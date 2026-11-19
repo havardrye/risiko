@@ -1,6 +1,6 @@
 # 005 – Koble risikoer til eier, tema og område med ID
 
-Status: IMPLEMENTERT – alle krav K57–K62 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier.
+Status: GODKJENT 2026-11-19 av produkteier. Alle krav K57–K62 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Test med skjermleser er ikke gjort. Endringer skjer som nye krav eller en ny spec.
 Bygger på: [001-mvp](../001-mvp/spec.md), [002-excel-import](../002-excel-import/spec.md) og [004-egne-id-er](../004-egne-id-er/spec.md). Kravnumrene fortsetter etter K56, altså fra K57.
 
 ## Formål
