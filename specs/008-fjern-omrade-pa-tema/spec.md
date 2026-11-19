@@ -1,6 +1,6 @@
 # 008 – Fjern område på tema
 
-Status: IMPLEMENTERT – alle krav K75–K79 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Venter på godkjenning fra produkteier.
+Status: GODKJENT 2026-11-19 av produkteier. Alle krav K75–K79 og akseptkriterier er oppfylt (se sjekklisten nederst i `tasks.md`). Endringer skjer som nye krav eller en ny spec.
 Bygger på: [001-mvp](../001-mvp/spec.md) (K16, K18, K22), [002-excel-import](../002-excel-import/spec.md) og [006-omrade-pa-tema](../006-omrade-pa-tema/spec.md). Kravnumrene fortsetter etter K74, altså fra K75.
 
 ## Formål
